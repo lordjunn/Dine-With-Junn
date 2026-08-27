@@ -7,7 +7,7 @@ from typing import Dict, List, Any, Optional
 
 from pipeline.config import (
     BASE_DIR, CONTENT_DIR, IMAGES_DIR, TEMPLATES_DIR,
-    STATIC_DIR, DIST_DIR, LEGACY_MMU_ARCHIVE_URL
+    STATIC_DIR, DIST_DIR, LEGACY_MMU_ARCHIVE_URL, load_site_config
 )
 from pipeline.schema import MonthData, MonthAnalytics
 from pipeline.parser import MarkdownContentParser
@@ -26,6 +26,7 @@ class SiteBuilder:
         """Executes the full static site build process."""
         print(f"[*] Starting build process...")
         self.dist_dir.mkdir(parents=True, exist_ok=True)
+        site_config = load_site_config()
 
         # 1. Parse all months
         months_data: List[tuple[MonthData, MonthAnalytics]] = []
@@ -57,6 +58,7 @@ class SiteBuilder:
             {
                 "root_path": "",
                 "active_page": "index",
+                "site_config": site_config,
                 "latest_month": latest_month_obj,
                 "latest_analytics": latest_analytics,
                 "latest_month_slug": latest_month_obj.slug,
@@ -83,6 +85,7 @@ class SiteBuilder:
             {
                 "root_path": "",
                 "active_page": "archives",
+                "site_config": site_config,
                 "months": all_months_list,
                 "era_groups": era_groups,
                 "latest_month_slug": latest_month_obj.slug,
@@ -98,6 +101,7 @@ class SiteBuilder:
             {
                 "root_path": "",
                 "active_page": "all",
+                "site_config": site_config,
                 "latest_month_slug": latest_month_obj.slug,
                 "latest_month_title": latest_month_obj.title,
             }
@@ -116,6 +120,7 @@ class SiteBuilder:
                 {
                     "root_path": "",
                     "active_page": month_obj.slug,
+                    "site_config": site_config,
                     "month": month_obj,
                     "analytics": analytics_obj,
                     "prev_month": prev_month,
@@ -179,6 +184,17 @@ class SiteBuilder:
         # Clean any unreplaced blocks in base
         result = re.sub(r'{%\s*block\s+[a-zA-Z0-9_]+\s*%}(.*?){%\s*endblock\s*%}', r'\1', result, flags=re.DOTALL)
 
+        # Handle favicon and site_config
+        root_path = ctx.get("root_path", "")
+        site_config = ctx.get("site_config", {})
+        avatar_path = site_config.get("author", {}).get("avatar", "images/avatars/mutsumi.png") if site_config else "images/avatars/mutsumi.png"
+        result = re.sub(
+            r'{%\s*if\s+site_config.*?{%\s*endif\s*%}',
+            f'<link rel="icon" type="image/png" href="{root_path}{avatar_path}">',
+            result,
+            flags=re.DOTALL
+        )
+
         # Specific template renders for standalone mode
         if template_name == "index.html":
             result = self._render_standalone_index(result, ctx)
@@ -190,7 +206,6 @@ class SiteBuilder:
             result = self._render_standalone_month(result, ctx)
 
         # Global variable replacements
-        root_path = ctx.get("root_path", "")
         result = result.replace("{{ root_path }}", root_path)
         result = result.replace("{{ latest_month_slug }}", ctx.get("latest_month_slug", ""))
         result = result.replace("{{ latest_month_title }}", ctx.get("latest_month_title", ""))
@@ -214,6 +229,14 @@ class SiteBuilder:
         return result
 
     def _render_standalone_index(self, html: str, ctx: Dict[str, Any]) -> str:
+        root_path = ctx.get("root_path", "")
+        site_config = ctx.get("site_config", {})
+        avatar_path = site_config.get("author", {}).get("avatar", "images/avatars/mutsumi.png") if site_config else "images/avatars/mutsumi.png"
+        html = re.sub(
+            r'<img src="\{\{ root_path \}\}\{\{ site_config\.author\.avatar.*?alt="Lord Junn"',
+            f'<img src="{root_path}{avatar_path}" alt="Lord Junn"',
+            html
+        )
         latest = ctx.get("latest_month")
         if latest:
             img_src = latest.archive.image or latest.outro.image

@@ -246,6 +246,28 @@ a:hover {
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 1rem;
   margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.hero-avatar-wrapper {
+  flex-shrink: 0;
+}
+
+.hero-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+  display: block;
+}
+
+.hero-header-text {
+  display: flex;
+  flex-direction: column;
 }
 
 .hero-title {

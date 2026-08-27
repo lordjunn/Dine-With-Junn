@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dine with Junn — Personal Food Diary & Expense Tracker{% endblock %}
+{% block title %}Dine with Junn{% endblock %}
 
 {% block content %}
 <div class="index-container">
@@ -8,8 +8,13 @@
   <!-- Hero / Persona Section -->
   <section class="hero-card">
     <div class="hero-header">
-      <h1 class="hero-title">About Me, The Food Man</h1>
-      <p class="hero-subtitle">"With passion For Real, Good Food"</p>
+      <div class="hero-avatar-wrapper">
+        <img src="{{ root_path }}{{ site_config.author.avatar if site_config and site_config.author and site_config.author.avatar else 'images/avatars/mutsumi.png' }}" alt="Lord Junn" class="hero-avatar" onerror="this.style.display='none'">
+      </div>
+      <div class="hero-header-text">
+        <h1 class="hero-title">About Me, The Food Man</h1>
+        <p class="hero-subtitle">"With passion For Real, Good Food"</p>
+      </div>
     </div>
     <div class="hero-prose">
       <p>
@@ -26,15 +31,41 @@
   </section>
 
   <!-- Latest Entry Spotlight -->
-  <!-- Latest Entry Spotlight -->
+  {% if latest_month %}
   <section class="spotlight-section">
     <div class="section-header">
       <h2>✨ Latest Food Diary Entry</h2>
-      <a href="{{ latest_month_slug }}.html" class="view-all-link">Read Full Month &rarr;</a>
+      <a href="{{ latest_month.slug }}.html" class="view-all-link">Read Full Month &rarr;</a>
     </div>
 
-    <!-- Spotlight card inserted here -->
+    <div class="spotlight-card">
+      <div class="spotlight-media">
+        {% if latest_month.archive.image %}
+          <img src="{{ root_path }}{{ latest_month.archive.image }}" alt="{{ latest_month.title }}">
+        {% elif latest_month.outro.image %}
+          <img src="{{ root_path }}{{ latest_month.outro.image }}" alt="{{ latest_month.title }}">
+        {% else %}
+          <div class="spotlight-placeholder">🍽️</div>
+        {% endif %}
+      </div>
+      <div class="spotlight-body">
+        <span class="spotlight-tag">Active / Latest Month</span>
+        <h3 class="spotlight-title">{{ latest_month.title.replace('Food Archive - ', '') if latest_month.title.startswith('Food Archive - ') else latest_month.title }}</h3>
+        {% if latest_month.archive.teaser %}
+          <div class="spotlight-teaser">"{{ latest_month.archive.teaser }}"</div>
+        {% endif %}
+        <div class="spotlight-meta">Nom Nom Days: <strong>{{ latest_month.nom_nom_days or latest_month.days | length }} days</strong></div>
+        <p class="spotlight-prose">
+          {{ latest_month.intro_text | truncate(220) }}
+        </p>
+        <div class="spotlight-actions">
+          <a href="{{ latest_month.slug }}.html" class="btn-primary">Explore {{ latest_month.slug }} Entries</a>
+          <a href="all.html" class="btn-secondary">Search All Meals</a>
+        </div>
+      </div>
+    </div>
   </section>
+  {% endif %}
 
   <!-- Life Chapters & Eras -->
   <!-- Life Chapters & Eras -->
