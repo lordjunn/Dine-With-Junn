@@ -178,9 +178,21 @@ expenses:
     month_img_dir.mkdir(parents=True, exist_ok=True)
     print(f"[+] Created image directory: {month_img_dir}")
 
-def cmd_sync_hdd(args):
-    """Safely copies source files and images to an external HDD path without touching .git or .venv."""
+def _smart_sync_file(src: Path, dst: Path) -> bool:
+    """Copies src to dst ONLY if dst does not exist or has different size/mtime."""
+    if dst.exists():
+        src_stat = src.stat()
+        dst_stat = dst.stat()
+        # If identical size and modified time matches within 1 second, skip copy
+        if src_stat.st_size == dst_stat.st_size and abs(src_stat.st_mtime - dst_stat.st_mtime) < 1.0:
+            return False
+    dst.parent.mkdir(parents=True, exist_ok=True)
     import shutil
+    shutil.copy2(src, dst)
+    return True
+
+def cmd_sync_hdd(args):
+    """Safely copies only modified/new source files to an external HDD path without touching .git or .venv."""
     import os
 
     dest_input = args.dest
@@ -200,35 +212,45 @@ def cmd_sync_hdd(args):
             print(f"[Error] Could not access or create target directory {dest_dir}: {e}")
             return
 
-    print(f"[*] Syncing project files to: {dest_dir}")
+    print(f"[*] Starting smart incremental sync to: {dest_dir}")
 
     sync_dirs = ["content", "images", "templates", "static", "pipeline", "scripts", ".github"]
     sync_files = ["config.json", "requirements.txt", "README.md", ".gitignore", ".env.example"]
 
-    synced_files = 0
-    synced_dirs = 0
+    copied_files = 0
+    skipped_files = 0
 
+    # Sync directories recursively with incremental checks
     for d in sync_dirs:
-        src_path = BASE_DIR / d
-        dst_path = dest_dir / d
-        if src_path.exists():
-            shutil.copytree(
-                src_path,
-                dst_path,
-                dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
-            )
-            synced_dirs += 1
+        src_dir = BASE_DIR / d
+        if not src_dir.exists():
+            continue
+        for src_file in src_dir.rglob("*"):
+            if src_file.is_file():
+                # Ignore temp / cache patterns
+                if "__pycache__" in src_file.parts or src_file.suffix in [".pyc", ".DS_Store"]:
+                    continue
+                rel_path = src_file.relative_to(BASE_DIR)
+                dst_file = dest_dir / rel_path
+                if _smart_sync_file(src_file, dst_file):
+                    copied_files += 1
+                else:
+                    skipped_files += 1
 
+    # Sync top-level files
     for f in sync_files:
         src_file = BASE_DIR / f
-        dst_file = dest_dir / f
-        if src_file.exists():
-            shutil.copy2(src_file, dst_file)
-            synced_files += 1
+        if src_file.exists() and src_file.is_file():
+            dst_file = dest_dir / f
+            if _smart_sync_file(src_file, dst_file):
+                copied_files += 1
+            else:
+                skipped_files += 1
 
-    print(f"[+] Sync complete! Copied {synced_dirs} directories and {synced_files} files to: {dest_dir}")
-    print("[*] Target's .git repository and .venv environments were safely protected.")
+    print(f"[+] Smart sync complete!")
+    print(f"    -> Updated / Copied: {copied_files} file(s)")
+    print(f"    -> Skipped (unchanged): {skipped_files} file(s)")
+    print(f"[*] Target's .git repository and .venv environments were safely protected.")
 
 def main():
     parser = argparse.ArgumentParser(description="Dine with Junn V2 - Master CLI Tool")
