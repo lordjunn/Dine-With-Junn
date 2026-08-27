@@ -63,9 +63,131 @@ def cmd_serve(args):
     except KeyboardInterrupt:
         print("\n[*] Server stopped.")
 
+def cmd_sync_images(args):
+    """Fetches photos from Discord and launches visual review UI."""
+    from pipeline.discord_sync import DiscordImageSync
+    syncer = DiscordImageSync()
+    syncer.run_review_flow(args.slug, mock=args.mock)
+
+def cmd_new_month(args):
+    """Generates a complete new month Markdown template with exact calendar dates."""
+    import calendar
+    import datetime
+    from pipeline.config import CONTENT_DIR, IMAGES_DIR
+
+    # 1. Determine Year & Month
+    if args.month_str:
+        target = args.month_str.strip()
+        if "-" in target:
+            parts = target.split("-")
+            year = int(parts[0])
+            month = int(parts[1])
+        else:
+            dt = datetime.datetime.strptime(target, "%b %Y")
+            year = dt.year
+            month = dt.month
+    else:
+        # Automatically compute NEXT month following latest existing file in content/
+        existing_files = sorted(CONTENT_DIR.glob("*.md"))
+        if existing_files:
+            latest_stem = existing_files[-1].stem
+            y_str, m_str = latest_stem.split("-")
+            y, m = int(y_str), int(m_str)
+            if m == 12:
+                year, month = y + 1, 1
+            else:
+                year, month = y, m + 1
+        else:
+            now = datetime.datetime.now()
+            year, month = now.year, now.month
+
+    month_name = calendar.month_name[month]
+    slug = f"{year:04d}-{month:02d}"
+    out_md_path = CONTENT_DIR / f"{slug}.md"
+
+    if out_md_path.exists() and not args.force:
+        print(f"[!] {out_md_path.name} already exists! Use --force if you want to overwrite.")
+        return
+
+    era = args.era if args.era else "Unknown grounds"
+
+    # 2. Generate Calendar Days Skeleton
+    num_days = calendar.monthrange(year, month)[1]
+    days_blocks = []
+    for day in range(1, num_days + 1):
+        day_date = datetime.date(year, month, day)
+        day_str = day_date.strftime("%Y-%m-%d")
+        weekday_str = day_date.strftime("%A")
+
+        if day == 1:
+            days_blocks.append(f"""## {day_str} ({weekday_str})
+
+### [Dish Name] [Restaurant]
+- Price: RM 0.00
+- Meal: Lunch
+- Image: ""
+
+Meal review and opening impressions...
+- Portion: details
+- Taste: details
+""")
+        else:
+            days_blocks.append(f"""## {day_str} ({weekday_str})
+
+""")
+
+    # 3. Assemble Full Markdown File
+    md_content = f"""---
+year: {year}
+month: {month}
+slug: "{slug}"
+title: "Food Archive - {month_name} {year}"
+nom_nom_days: 0
+reasons:
+  - "Milestone 1: 1/{month}"
+intro_text: |
+  Opening thoughts, mood, and predictions for {month_name} {year}...
+archive:
+  era: "{era}"
+  teaser: ""
+  image: ""
+outro:
+  title: ""
+  image: ""
+  prose: ""
+expenses:
+  rental: 0.00
+  utilities: 0.00
+  petrol: 0.00
+  etc: []
+---
+
+{"".join(days_blocks).strip()}
+"""
+
+    if args.dry_run:
+        print(f"[*] --dry-run: Would generate {out_md_path} ({num_days} days).")
+        print(f"[*] Preview of top frontmatter:\n{md_content[:280]}...")
+        return
+
+    out_md_path.write_text(md_content, encoding="utf-8")
+    print(f"[+] Successfully generated new month template: {out_md_path.name} ({num_days} days)")
+
+    # Ensure images folder exists: images/YYYY/MonthName/
+    month_img_dir = IMAGES_DIR / str(year) / month_name
+    month_img_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[+] Created image directory: {month_img_dir}")
+
 def main():
     parser = argparse.ArgumentParser(description="Dine with Junn V2 - Master CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # New-month command
+    new_month_parser = subparsers.add_parser("new-month", help="Auto-generate next month's Markdown template with calendar days")
+    new_month_parser.add_argument("month_str", nargs="?", type=str, help="Optional target month e.g. '2026-09'. Defaults to next month.")
+    new_month_parser.add_argument("--era", type=str, default=None, help="Era chapter title (default: 'Unknown grounds')")
+    new_month_parser.add_argument("--force", action="store_true", help="Overwrite if file already exists")
+    new_month_parser.add_argument("--dry-run", action="store_true", help="Print preview without writing file")
 
     # Migrate command
     migrate_parser = subparsers.add_parser("migrate", help="Migrate a V1 HTML month file to Markdown")
@@ -88,7 +210,9 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    if args.command == "migrate":
+    if args.command == "new-month":
+        cmd_new_month(args)
+    elif args.command == "migrate":
         cmd_migrate(args)
     elif args.command == "build":
         cmd_build(args)

@@ -27,13 +27,22 @@ Copy `.env.example` to `.env` and configure your Discord bot token:
 cp .env.example .env
 ```
 
-### 3. Build Static Site
+### 3. Generate Next Month's Template Automatically
+```bash
+# Automatically detects latest month and generates the next one (e.g. 2026-09.md with all 30 calendar days)
+python scripts/cli.py new-month
+
+# Or generate a specific month with a custom era title:
+python scripts/cli.py new-month 2026-10 --era "Corporate Slavery: Arc 1"
+```
+
+### 4. Build Static Site
 ```bash
 # Build full static site to /dist
 python scripts/cli.py build
 ```
 
-### 4. Sync Discord Photos (Visual Confirmation Workflow)
+### 5. Sync Discord Photos (Visual Confirmation Workflow)
 ```bash
 # Fetch photos for an in-progress month, open visual review UI in browser, confirm, and update Markdown
 python scripts/cli.py sync-images 2026-08
@@ -44,6 +53,16 @@ python scripts/cli.py sync-images 2026-08
 # Migrate a legacy V1 HTML month file to Markdown
 python scripts/cli.py migrate "path/to/Jul 26.html"
 ```
+
+---
+
+## ☁️ Automated GitHub Actions Deployment
+When you push changes to `main`:
+1. GitHub Actions automatically triggers if files in `content/`, `images/`, `templates/`, or `static/` are modified.
+2. It runs `python scripts/cli.py build` in the cloud.
+3. Automatically deploys the static `/dist` site straight to **GitHub Pages**.
+
+> **One-Time GitHub Setup**: In your GitHub repository, go to **Settings → Pages → Build and deployment → Source**, and select **GitHub Actions**.
 
 ---
 
