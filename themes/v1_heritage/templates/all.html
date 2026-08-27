@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Universal Food Log Browser — Dine with Junn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ root_path }}static/css/all.css">
+{% endblock %}
+
+{% block content %}
+<div class="search-page-wrapper">
+
+  <!-- Search & Filter Controls Header -->
+  <div class="search-sticky-header">
+    <input type="text" id="searchBox" placeholder="Search food, restaurant... (e.g. >rm8, <rm5, >=rm5 <=rm10, free)" autocomplete="off">
+
+    <div class="search-controls-row">
+      <div class="search-actions-left">
+        <select id="sortDropdown">
+          <option value="date-desc">Sort by Date (Latest)</option>
+          <option value="date-asc">Sort by Date (Earliest)</option>
+          <option value="price-asc">Sort by Price (Lowest)</option>
+          <option value="price-desc">Sort by Price (Highest)</option>
+        </select>
+
+        <button id="toggleSourceButton">Show Monthly Summaries</button>
+      </div>
+
+      <div id="insightsControls" class="insights-controls" style="display: none;">
+        <select id="insightMetricDropdown" title="Choose metric to rank months by">
+          <option value="total">Total Cash Damage</option>
+          <option value="purelyFood">Purely Food Expenses</option>
+          <option value="breakfast">Breakfast</option>
+          <option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="avgPerDay">Average Cost Per Day</option>
+          <option value="etcExpenses">Etc. Expenses</option>
+        </select>
+        <button id="showInsightButton">Show Insights Leaderboard</button>
+      </div>
+
+      <span id="resultCount" class="result-count-label">Loading database...</span>
+    </div>
+
+    <!-- Insights Ranking Panel -->
+    <div id="insightsPanel" class="insights-panel-v1" style="display: none;"></div>
+  </div>
+
+  <!-- Results Content Area -->
+  <div>
+    <h2 id="viewHeading" class="results-heading">All Food Logs</h2>
+    <div id="resultsList" class="results-grid-v1"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ root_path }}static/js/all.js"></script>
+{% endblock %}

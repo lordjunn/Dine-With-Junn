@@ -1,0 +1,162 @@
+/* ==========================================================================
+   Dine with Junn V2 — V1 1:1 Authentic Archives Stylesheet (index.css)
+   ========================================================================== */
+
+.archives-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5em;
+  font-family: var(--font-base);
+}
+
+.archives-main-header {
+  text-align: center;
+  margin: 1.5em 0 2.5em;
+}
+
+.archives-main-header h1 {
+  font-family: var(--font-heading);
+  font-size: 52px;
+  color: var(--text-primary);
+  margin-bottom: 0.25em;
+}
+
+.archives-main-header p {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 650px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.era-block {
+  margin-bottom: 3.5em;
+}
+
+.era-title {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  border-bottom: 2px solid var(--accent-purple-dark);
+  padding-bottom: 8px;
+  margin-bottom: 1.5em;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.era-title span {
+  font-size: 16px;
+  font-family: var(--font-base);
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.archives-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.5em;
+}
+
+.archive-card {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.archive-card:hover {
+  border-color: var(--accent-purple);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.archive-card-link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: inherit;
+}
+
+.archive-image-wrapper {
+  height: 220px;
+  background: var(--bg-muted);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.archive-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-placeholder {
+  font-size: 3rem;
+}
+
+.archive-card-body {
+  padding: 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  flex-grow: 1;
+}
+
+.archive-month-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.archive-teaser {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* MMU Heritage Box */
+.mmu-heritage-box {
+  background: var(--bg-muted);
+  border-left: 4px solid #0284c7;
+  padding: 1.5em;
+  margin-top: 2em;
+}
+
+.mmu-heritage-box h3 {
+  font-size: 20px;
+  color: #0284c7;
+  margin-bottom: 0.4em;
+}
+
+.mmu-heritage-box p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1em;
+}
+
+.btn-heritage-link {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #0284c7;
+  color: #ffffff !important;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-heritage-link:hover {
+  background: #0369a1;
+}
+
+@media (max-width: 768px) {
+  .archives-grid { grid-template-columns: 1fr; }
+  .archives-main-header h1 { font-size: 36px; }
+  .era-title { font-size: 24px; }
+}

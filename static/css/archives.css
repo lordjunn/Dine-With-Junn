@@ -1,0 +1,197 @@
+/* ==========================================================================
+   Dine with Junn V2 — Clean Archives Stylesheet
+   ========================================================================== */
+
+.archives-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.archives-header {
+  text-align: center;
+  max-width: 650px;
+  margin: 1rem auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.archives-badge {
+  background: var(--accent-warm-subtle);
+  color: var(--accent-warm);
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.archives-title {
+  font-family: var(--font-serif);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+
+.archives-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.era-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.era-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.era-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.era-tag {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.archives-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.archive-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.archive-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.archive-card-link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: inherit;
+}
+
+.archive-image-wrapper {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: var(--bg-card-muted);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.archive-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  transition: transform 0.3s ease;
+}
+
+.archive-card:hover .archive-img {
+  transform: scale(1.03);
+}
+
+.archive-placeholder {
+  font-size: 3.5rem;
+  opacity: 0.7;
+}
+
+.archive-card-body {
+  padding: 1.1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: center;
+  flex-grow: 1;
+}
+
+.archive-month-title {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.archive-teaser {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-style: italic;
+  line-height: 1.45;
+  flex-grow: 1;
+}
+
+/* MMU Heritage Card */
+.mmu-heritage-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--accent-blue);
+  border-radius: 10px;
+  padding: 1.75rem;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mmu-heritage-card h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mmu-heritage-card p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.btn-heritage {
+  align-self: flex-start;
+  background: var(--accent-blue);
+  color: #ffffff !important;
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
+  margin-top: 0.35rem;
+}
+
+.btn-heritage:hover {
+  background: #0284c7;
+}
+
+@media (max-width: 768px) {
+  .archives-grid { grid-template-columns: 1fr; }
+  .archives-title { font-size: 1.85rem; }
+}

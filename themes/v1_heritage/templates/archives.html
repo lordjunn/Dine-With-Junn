@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Food Archives — Dine with Junn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ root_path }}static/css/archives.css">
+{% endblock %}
+
+{% block content %}
+<div class="archives-wrapper">
+
+  <!-- Header -->
+  <div class="archives-main-header">
+    <h1>Food Archives</h1>
+    <p>
+      Hello there. May I interest you in a stroll down memory lane?<br>
+      Here lies every meal logged, every ringgit counted, and a little peek into my life.
+    </p>
+  </div>
+
+  <!-- Post-Grad / Active Months Section -->
+  <div class="era-block">
+    <h2 class="era-title">
+      <span>Unknown Grounds & Post-Grad Era (2026+)</span>
+      <span>V2 Active Logs</span>
+    </h2>
+
+    <div class="archives-grid">
+      {% for month in months %}
+        <div class="archive-card">
+          <a href="{{ root_path }}{{ month.slug }}.html" class="archive-card-link">
+            <div class="archive-image-wrapper">
+              {% if month.archive.image %}
+                <img src="{{ root_path }}{{ month.archive.image }}" alt="{{ month.title }}" class="archive-img">
+              {% elif month.outro.image %}
+                <img src="{{ root_path }}{{ month.outro.image }}" alt="{{ month.title }}" class="archive-img">
+              {% else %}
+                <div class="archive-placeholder">🍽️</div>
+              {% endif %}
+            </div>
+            <div class="archive-card-body">
+              <div class="archive-month-title">{{ month.title }}</div>
+              <p class="archive-teaser">
+                {% if month.archive.teaser %}
+                  "{{ month.archive.teaser }}"
+                {% else %}
+                  {{ month.intro_text | truncate(80) }}
+                {% endif %}
+              </p>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- MMU Heritage Archive Section -->
+  <div class="era-block">
+    <h2 class="era-title">
+      <span>The MMU Undergraduate Archive (August 2022 – July 2026)</span>
+      <span>4 Years • 49 Months</span>
+    </h2>
+
+    <div class="mmu-heritage-box">
+      <h3>🏛️ Multimedia University Campus Chronicles</h3>
+      <p>
+        The complete 4-year undergraduate saga across Trimesters 2135 to 2230. Documenting cafeteria meals, campus food courts (HTC, Dapo Sahang, Komatra, Deens Cafe, Starbees), student hostel life, exam weeks, and FYP2 graduation at 3.5 CGPA.
+      </p>
+      <div>
+        <a href="https://lordjunn.github.io/Food-MMU/Logs/Food%20Archives.html" target="_blank" class="btn-heritage-link">Open Full MMU Archive Hub ↗</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

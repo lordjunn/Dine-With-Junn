@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dine with Junn{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ root_path }}static/css/main.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ root_path }}index.html" class="nav-brand">
+        <span class="brand-icon">🍽️</span>
+        <span class="brand-text">Dine with Junn</span>
+      </a>
+
+      <!-- Desktop Links -->
+      <div class="nav-links">
+        <a href="{{ root_path }}index.html" class="nav-link {% if active_page == 'index' %}active{% endif %}">Home</a>
+        {% if latest_month_slug %}
+          <a href="{{ root_path }}{{ latest_month_slug }}.html" class="nav-link {% if active_page == latest_month_slug %}active{% endif %}">Latest Log</a>
+        {% endif %}
+        <a href="{{ root_path }}archives.html" class="nav-link {% if active_page == 'archives' %}active{% endif %}">Archives</a>
+        <a href="{{ root_path }}all.html" class="nav-link {% if active_page == 'all' %}active{% endif %}">Search All</a>
+        <a href="https://lordjunn.github.io/Food-MMU/index.html" target="_blank" class="nav-link nav-heritage">🏛️ MMU Heritage</a>
+        <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle Theme">🌙 Dark</button>
+      </div>
+
+      <!-- Mobile Menu Toggle -->
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-drawer" id="mobileDrawer">
+      <a href="{{ root_path }}index.html">Home</a>
+      {% if latest_month_slug %}
+        <a href="{{ root_path }}{{ latest_month_slug }}.html">Latest Log ({{ latest_month_title }})</a>
+      {% endif %}
+      <a href="{{ root_path }}archives.html">Archives</a>
+      <a href="{{ root_path }}all.html">Search All Logs</a>
+      <a href="https://lordjunn.github.io/Food-MMU/index.html" target="_blank">🏛️ MMU Heritage Archive (2022–2026)</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="site-main">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-bio">
+          <h3>🍽️ Dine with Junn</h3>
+          <p>A personal food diary, culinary chronicle, and real-world expense tracker by <strong>Lord Junn</strong> (<em>"The Food Man"</em>). Documenting meals, milestones, and life costs.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Navigation</h4>
+          <ul>
+            <li><a href="{{ root_path }}index.html">Home / About</a></li>
+            <li><a href="{{ root_path }}archives.html">Monthly Archives</a></li>
+            <li><a href="{{ root_path }}all.html">Universal Search</a></li>
+            <li><a href="https://lordjunn.github.io/Food-MMU/index.html" target="_blank">MMU Heritage Archive (2022–2026)</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p><em>"Because every meal tells a story."</em> • Dine with Junn V2</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Theme Switcher Logic
+    const themeBtn = document.getElementById('themeToggleBtn');
+    const currentTheme = localStorage.getItem('site-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    if (themeBtn) {
+      themeBtn.textContent = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+      themeBtn.addEventListener('click', () => {
+        const active = document.documentElement.getAttribute('data-theme');
+        const next = active === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('site-theme', next);
+        themeBtn.textContent = next === 'dark' ? '☀️ Light' : '🌙 Dark';
+      });
+    }
+
+    // Mobile Drawer Toggle
+    const navToggle = document.getElementById('navToggle');
+    const mobileDrawer = document.getElementById('mobileDrawer');
+    if (navToggle && mobileDrawer) {
+      navToggle.addEventListener('click', () => {
+        mobileDrawer.classList.toggle('is-open');
+        navToggle.classList.toggle('is-active');
+      });
+    }
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

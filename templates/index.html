@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Dine with Junn — Personal Food Diary & Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="index-container">
+
+  <!-- Hero / Persona Section -->
+  <section class="hero-card">
+    <div class="hero-header">
+      <h1 class="hero-title">About Me, The Food Man</h1>
+      <p class="hero-subtitle">"With passion For Real, Good Food"</p>
+    </div>
+    <div class="hero-prose">
+      <p>
+        Just me, myself and I, exploring the universe of unknownment. I have a heart of love and an interest for tasting food.
+        Even though my taste buds may not be the same as yours, I document every meal, every ringgit, and every culinary memory.
+      </p>
+      <p>
+        From four years of university campus survival into post-graduate job hunting, commuting, and adult life — every meal is catalogued down to the exact price, portion scoop, and retrospective reflection.
+      </p>
+    </div>
+    <div class="hero-contact">
+      Want me to review a food of your choice? PM <strong>lordjunn</strong> on Discord. (We can discuss the food, though you might be footing the bill if it's out of my budget! 😉)
+    </div>
+  </section>
+
+  <!-- Latest Entry Spotlight -->
+  <!-- Latest Entry Spotlight -->
+  <section class="spotlight-section">
+    <div class="section-header">
+      <h2>✨ Latest Food Diary Entry</h2>
+      <a href="{{ latest_month_slug }}.html" class="view-all-link">Read Full Month &rarr;</a>
+    </div>
+
+    <!-- Spotlight card inserted here -->
+  </section>
+
+  <!-- Life Chapters & Eras -->
+  <!-- Life Chapters & Eras -->
+  <section class="chapters-section">
+    <div class="section-header">
+      <h2>📖 Life Chapters & Historical Eras</h2>
+    </div>
+
+    <div class="chapters-grid">
+      <!-- Chapter 2: Post-Grad -->
+      <article class="chapter-card">
+        <span class="chapter-badge">Current Saga (2026+)</span>
+        <h3>Post-Grad & Unknown Grounds</h3>
+        <p>Transitioning from university into adulthood: interviews, assessments, case studies, corporate canteens, and culinary discovery across Klang Valley.</p>
+        <div class="chapter-footer">
+          <a href="archives.html" class="chapter-link">Browse V2 Monthly Logs &rarr;</a>
+        </div>
+      </article>
+
+      <!-- Chapter 1: MMU Heritage -->
+      <article class="chapter-card heritage-card">
+        <span class="chapter-badge heritage-badge">4-Year Heritage (2022–2026)</span>
+        <h3>The MMU Campus Era</h3>
+        <p>The complete 49-month undergraduate saga across Trimesters 2135 to 2230. HTC, Dapo Sahang, Komatra, Deens, Starbees, exam weeks, and FYP2 graduation at 3.5 CGPA.</p>
+        <div class="chapter-footer">
+          <a href="https://lordjunn.github.io/Food-MMU/index.html" target="_blank" class="chapter-link heritage-link">Open 4-Year MMU Archive ↗</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

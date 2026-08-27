@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Universal Food Log Browser — Dine with Junn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ root_path }}static/css/all.css">
+{% endblock %}
+
+{% block content %}
+<div class="all-page-wrapper">
+
+  <!-- Search & Filter Controls Header -->
+  <section class="search-header-card">
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchBox" placeholder="Search food, restaurant... (e.g. >rm8, <rm5, >=rm5 <=rm10, free)" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="filter-controls-row">
+      <div class="filter-actions-group">
+        <select id="sortDropdown" class="form-select" title="Sort search results">
+          <option value="date-desc">Sort by Date (Latest)</option>
+          <option value="date-asc">Sort by Date (Earliest)</option>
+          <option value="price-asc">Sort by Price (Lowest)</option>
+          <option value="price-desc">Sort by Price (Highest)</option>
+        </select>
+
+        <button id="toggleSourceButton" class="btn-toggle">Show Monthly Summaries</button>
+      </div>
+
+      <div id="insightsControls" class="insights-controls" style="display: none;">
+        <select id="insightMetricDropdown" class="form-select" title="Choose metric to rank months by">
+          <option value="total">Total Cash Damage</option>
+          <option value="purelyFood">Purely Food Expenses</option>
+          <option value="breakfast">Breakfast</option>
+          <option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="avgPerDay">Average Cost Per Day</option>
+          <option value="etcExpenses">Etc. Expenses</option>
+        </select>
+        <button id="showInsightButton" class="btn-insight">Show Insights Leaderboard</button>
+      </div>
+
+      <span id="resultCount" class="result-counter">Loading database...</span>
+    </div>
+
+    <!-- Insights Ranking Panel -->
+    <div id="insightsPanel" class="insights-panel" style="display: none;"></div>
+  </section>
+
+  <!-- Results Content Area -->
+  <section class="search-results-section">
+    <h2 id="viewHeading" class="view-heading">All Food Logs</h2>
+    <div id="resultsList" class="results-grid"></div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ root_path }}static/js/all.js"></script>
+{% endblock %}

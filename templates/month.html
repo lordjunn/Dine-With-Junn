@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}{{ month.title }} — Dine with Junn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ root_path }}static/css/month.css">
+{% endblock %}
+
+{% block content %}
+<div class="month-container">
+
+  <!-- Month Navigation Header -->
+  <div class="month-nav-header">
+    <div class="month-nav-prev">
+      {% if prev_month %}
+        <a href="{{ root_path }}{{ prev_month.slug }}.html" class="nav-month-btn">&larr; {{ prev_month.title }}</a>
+      {% endif %}
+    </div>
+    <div class="month-nav-hub">
+      <a href="{{ root_path }}archives.html" class="nav-hub-btn">📚 Archives Hub</a>
+    </div>
+    <div class="month-nav-next">
+      {% if next_month %}
+        <a href="{{ root_path }}{{ next_month.slug }}.html" class="nav-month-btn">{{ next_month.title }} &rarr;</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Header Card: Milestones, Reasons, & Opening Prediction -->
+  <header class="month-header-card">
+    <div class="month-header-badge">Monthly Food Log</div>
+    <h1 class="month-main-title">{{ month.title }}</h1>
+
+    <div class="month-meta-box">
+      {% if month.nom_nom_days %}
+        <div class="nom-nom-stat">
+          <span class="stat-label">Nom nom days:</span>
+          <span class="stat-value">{{ month.nom_nom_days }} days</span>
+        </div>
+      {% endif %}
+
+      {% if month.reasons %}
+        <div class="reasons-box">
+          <strong>Key Reasons & Schedule:</strong>
+          <ul class="reasons-list">
+            {% for reason in month.reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if month.intro_text %}
+      <div class="intro-prose-box">
+        <h3>Opening Thoughts & Predictions</h3>
+        <div class="intro-text">
+          {{ month.intro_text | replace('\n', '<br>') | safe }}
+        </div>
+      </div>
+    {% endif %}
+  </header>
+
+  <!-- Daily Meal Stream -->
+  <!-- Daily Meal Stream -->
+  <section class="daily-stream">
+    {% for day in month.days %}
+      <div class="day-group">
+        <h2 class="day-heading">{{ day.date_str }} ({{ day.day_of_week }})</h2>
+        <div class="meals-list">
+          {% for meal in day.meals %}
+            <article class="meal-card">
+              {% if meal.image %}
+                <div class="meal-media">
+                  <img class="meal-image" src="{{ root_path }}{{ meal.image }}" alt="{{ meal.dish_name }}" loading="lazy">
+                </div>
+              {% endif %}
+              <div class="meal-details">
+                <div class="meal-header-row">
+                  <h3 class="meal-title">
+                    <span class="dish-name">{{ meal.dish_name }}</span>
+                    {% if meal.restaurant %}
+                      <span class="vendor-tag">[{{ meal.restaurant }}]</span>
+                    {% endif %}
+                  </h3>
+                  <span class="meal-price">{{ meal.price_str | safe }}</span>
+                </div>
+                <div class="meal-type-badge">{{ meal.meal_type }}</div>
+
+                {% if meal.description or meal.items %}
+                  <div class="meal-description-wrapper">
+                    <div class="meal-description">
+                      {% if meal.description %}
+                        <p>{{ meal.description | replace('\n', '<br>') | safe }}</p>
+                      {% endif %}
+                      {% if meal.items %}
+                        <ul class="itemized-bullets">
+                          {% for item in meal.items %}
+                            <li>{{ item }}</li>
+                          {% endfor %}
+                        </ul>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+
+  <!-- Outro Retrospective & Spending Summary -->
+  <!-- Outro Retrospective & Spending Summary -->
+  {% if month.outro.title or month.outro.prose or analytics.purely_food_expenses > 0 %}
+  <section class="outro-section">
+    <div class="outro-top-row">
+      {% if month.outro.image %}
+        <div class="outro-media">
+          <img src="{{ root_path }}{{ month.outro.image }}" alt="{{ month.outro.title }}" class="outro-image">
+        </div>
+      {% endif %}
+
+      <div class="outro-prose-col">
+        <h2 class="outro-title">{{ month.outro.title or "Month-Ending Retrospective" }}</h2>
+
+        {% if month.outro.prose %}
+          <div class="description-scrollbox">
+            {{ month.outro.prose | replace('\n', '<br>') | safe }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Full-Width Bottom Row: Spending Breakdown -->
+    <div class="spending-summary-box">
+      <div class="spending-header-row">
+        <h3>📊 Complete Spending Breakdown</h3>
+        <div class="cash-damage-badge">
+          <span class="damage-label">Total Cash Damage</span>
+          <span class="damage-amount">RM {{ "%.2f" | format(analytics.total_cash_damage) }}</span>
+        </div>
+      </div>
+      <ul class="spending-list">
+        <li class="stat-pure-food">
+          <strong>Purely food expenses:</strong> RM {{ "%.2f" | format(analytics.purely_food_expenses) }}
+        </li>
+        <li>
+          <strong>Breakfast:</strong> RM {{ "%.2f" | format(analytics.breakfast_total) }}
+          {% if analytics.breakfast_count > 0 %}
+            <span class="avg-note">(~RM {{ "%.2f" | format(analytics.breakfast_average) }} per meal)</span>
+          {% endif %}
+        </li>
+        <li>
+          <strong>Lunch:</strong> RM {{ "%.2f" | format(analytics.lunch_total) }}
+          {% if analytics.lunch_count > 0 %}
+            <span class="avg-note">(~RM {{ "%.2f" | format(analytics.lunch_average) }} per meal)</span>
+          {% endif %}
+        </li>
+        <li>
+          <strong>Dinner:</strong> RM {{ "%.2f" | format(analytics.dinner_total) }}
+          {% if analytics.dinner_count > 0 %}
+            <span class="avg-note">(~RM {{ "%.2f" | format(analytics.dinner_average) }} per meal)</span>
+          {% endif %}
+        </li>
+        <li class="stat-avg-day">
+          <strong>Average cost per day:</strong> RM {{ "%.2f" | format(analytics.average_cost_per_day) }}
+        </li>
+
+        {% if month.expenses.etc %}
+          <li class="stat-etc">
+            <strong>Etc. Expenses:</strong> RM {{ "%.2f" | format(analytics.etc_expenses_total) }}
+            <ul class="etc-nested-list">
+              {% for item in month.expenses.etc %}
+                <li>
+                  {% if item.day %}({{ item.day }}) {% endif %}
+                  {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                </li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% endif %}
+
+        {% if month.expenses.rental > 0 %}
+          <li><strong>Rental:</strong> RM {{ "%.2f" | format(month.expenses.rental) }}</li>
+        {% endif %}
+        {% if month.expenses.utilities > 0 %}
+          <li><strong>Utilities:</strong> RM {{ "%.2f" | format(month.expenses.utilities) }}</li>
+        {% endif %}
+        {% if month.expenses.petrol > 0 %}
+          <li><strong>Petrol:</strong> RM {{ "%.2f" | format(month.expenses.petrol) }}</li>
+        {% endif %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Chart.js Visualization Canvas -->
+  <!-- Chart.js Visualization Canvas -->
+  <section class="chart-section">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h2>📈 Daily Meal Cost Analytics</h2>
+        <p>Breakdown of daily food spending, breakfast, lunch, and dinner costs across {{ month.title }}.</p>
+      </div>
+      <div class="chart-container">
+        <canvas id="mealChart" width="400" height="200"></canvas>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  window.mealChartData = {
+    labels: {{ analytics.chart_labels | tojson }},
+    dailyCosts: {{ analytics.chart_daily_costs | tojson }},
+    breakfastCosts: {{ analytics.chart_breakfast_costs | tojson }},
+    lunchCosts: {{ analytics.chart_lunch_costs | tojson }},
+    dinnerCosts: {{ analytics.chart_dinner_costs | tojson }}
+  };
+</script>
+<script src="{{ root_path }}static/js/month.js"></script>
+{% endblock %}
