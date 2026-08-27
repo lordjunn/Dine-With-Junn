@@ -27,7 +27,13 @@ Copy `.env.example` to `.env` and configure your Discord bot token:
 cp .env.example .env
 ```
 
-### 3. Generate Next Month's Template Automatically
+### 3. Sync to External HDD (Zero File Explorer Drag-and-Drop)
+```bash
+# Safely mirrors your latest Markdown files & photos to your HDD (protects .git and .venv)
+python scripts/cli.py sync-hdd "E:\Dine-With-Junn"
+```
+
+### 4. Generate Next Month's Template Automatically
 ```bash
 # Automatically detects latest month and generates the next one (e.g. 2026-09.md with all 30 calendar days)
 python scripts/cli.py new-month
@@ -36,7 +42,7 @@ python scripts/cli.py new-month
 python scripts/cli.py new-month 2026-10 --era "Corporate Slavery: Arc 1"
 ```
 
-### 4. Build Static Site
+### 5. Build Static Site
 ```bash
 # Build full static site to /dist
 python scripts/cli.py build

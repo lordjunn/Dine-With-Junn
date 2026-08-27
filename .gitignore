@@ -34,3 +34,7 @@ Thumbs.db
 temp/
 scratch/
 *.log
+
+# Legacy V1 archive (already preserved in Food-MMU repo)
+legacy_v1_archive/
+

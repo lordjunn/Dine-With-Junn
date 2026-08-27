@@ -178,9 +178,65 @@ expenses:
     month_img_dir.mkdir(parents=True, exist_ok=True)
     print(f"[+] Created image directory: {month_img_dir}")
 
+def cmd_sync_hdd(args):
+    """Safely copies source files and images to an external HDD path without touching .git or .venv."""
+    import shutil
+    import os
+
+    dest_input = args.dest
+    if not dest_input:
+        dest_input = os.getenv("HDD_PATH")
+
+    if not dest_input:
+        print("[Error] Please provide the target HDD destination path!\nUsage: python scripts/cli.py sync-hdd \"E:\\Dine-With-Junn\"")
+        return
+
+    dest_dir = Path(dest_input).resolve()
+    if not dest_dir.exists():
+        try:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            print(f"[*] Created target directory: {dest_dir}")
+        except Exception as e:
+            print(f"[Error] Could not access or create target directory {dest_dir}: {e}")
+            return
+
+    print(f"[*] Syncing project files to: {dest_dir}")
+
+    sync_dirs = ["content", "images", "templates", "static", "pipeline", "scripts", ".github"]
+    sync_files = ["config.json", "requirements.txt", "README.md", ".gitignore", ".env.example"]
+
+    synced_files = 0
+    synced_dirs = 0
+
+    for d in sync_dirs:
+        src_path = BASE_DIR / d
+        dst_path = dest_dir / d
+        if src_path.exists():
+            shutil.copytree(
+                src_path,
+                dst_path,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
+            )
+            synced_dirs += 1
+
+    for f in sync_files:
+        src_file = BASE_DIR / f
+        dst_file = dest_dir / f
+        if src_file.exists():
+            shutil.copy2(src_file, dst_file)
+            synced_files += 1
+
+    print(f"[+] Sync complete! Copied {synced_dirs} directories and {synced_files} files to: {dest_dir}")
+    print("[*] Target's .git repository and .venv environments were safely protected.")
+
 def main():
     parser = argparse.ArgumentParser(description="Dine with Junn V2 - Master CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # Sync-hdd command
+    sync_hdd_parser = subparsers.add_parser("sync-hdd", help="Copy project files to an external HDD directory safely (protects .git/.venv)")
+    sync_hdd_parser.add_argument("dest", nargs="?", type=str, help="Destination directory path (e.g. 'E:\\Dine-With-Junn')")
 
     # New-month command
     new_month_parser = subparsers.add_parser("new-month", help="Auto-generate next month's Markdown template with calendar days")
@@ -210,7 +266,9 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    if args.command == "new-month":
+    if args.command == "sync-hdd":
+        cmd_sync_hdd(args)
+    elif args.command == "new-month":
         cmd_new_month(args)
     elif args.command == "migrate":
         cmd_migrate(args)
