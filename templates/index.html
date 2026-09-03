@@ -54,6 +54,7 @@
         <h3 class="spotlight-title">{{ latest_month.title.replace('Food Archive - ', '') if latest_month.title.startswith('Food Archive - ') else latest_month.title }}</h3>
         {% if latest_month.archive.teaser %}
           <div class="spotlight-teaser">"{{ latest_month.archive.teaser }}"</div>
+        {% endif %}
         {% if latest_month.nom_nom_days and latest_month.nom_nom_days > 0 %}
           <div class="spotlight-meta">{{ site_config.labels.nom_nom_days if (site_config.labels and site_config.labels.nom_nom_days) else 'Nom Nom Days' }}: <strong>{{ latest_month.nom_nom_days }} days</strong></div>
         {% else %}
