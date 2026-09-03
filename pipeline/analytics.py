@@ -64,8 +64,9 @@ class SpendingAnalyticsEngine:
         avg_lunch = (lunch_total / lunch_count) if lunch_count > 0 else 0.0
         avg_dinner = (dinner_total / dinner_count) if dinner_count > 0 else 0.0
 
-        # Average per day: divide by nom_nom_days if set, otherwise active logged days
-        active_days_count = month_data.nom_nom_days if month_data.nom_nom_days else len(month_data.days)
+        # Average per day: divide by nom_nom_days if set > 0, otherwise active days with meals
+        days_with_meals = len([d for d in month_data.days if len(d.meals) > 0])
+        active_days_count = month_data.nom_nom_days if (month_data.nom_nom_days and month_data.nom_nom_days > 0) else days_with_meals
         avg_per_day = (purely_food / active_days_count) if active_days_count > 0 else 0.0
 
         # Etc Expenses Total

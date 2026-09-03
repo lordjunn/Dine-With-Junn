@@ -195,6 +195,23 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  max-height: 205px;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.insights-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.insights-list::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+  border-radius: 4px;
+}
+
+.insights-list::-webkit-scrollbar-thumb {
+  background: var(--accent-warm);
+  border-radius: 4px;
 }
 
 .insights-item {
@@ -206,6 +223,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   transition: border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
 .insights-item:hover {
@@ -329,6 +347,13 @@
   font-size: 0.92rem;
   line-height: 1.65;
   color: var(--text-secondary);
+}
+
+.summary-prose-scrollbox small,
+.search-desc small {
+  font-size: 0.84em;
+  color: var(--text-muted);
+  display: inline;
 }
 
 .summary-prose-scrollbox::-webkit-scrollbar {

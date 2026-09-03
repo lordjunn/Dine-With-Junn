@@ -9,5 +9,8 @@
   "site": {
     "title": "Dine with Junn",
     "legacy_mmu_url": "https://lordjunn.github.io/Food-MMU/index.html"
+  },
+  "labels": {
+    "nom_nom_days": "Nom Nom Days"
   }
 }

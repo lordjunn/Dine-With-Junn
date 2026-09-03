@@ -118,13 +118,14 @@
 }
 
 .reasons-list {
-  list-style-type: disc;
+  list-style: none;
+  list-style-type: none;
   padding-left: 1.25rem;
   color: var(--text-secondary);
   font-size: 0.88rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
 
 .intro-prose-box {
@@ -144,7 +145,19 @@
 .intro-text {
   color: var(--text-secondary);
   font-size: 0.95rem;
-  line-height: 1.7;
+  line-height: 1.65;
+}
+
+.intro-text p,
+.outro-prose-col p,
+.meal-description p {
+  margin-bottom: 0.95rem;
+}
+
+.intro-text p:last-child,
+.outro-prose-col p:last-child,
+.meal-description p:last-child {
+  margin-bottom: 0;
 }
 
 /* --- Daily Meal Stream --- */
@@ -158,6 +171,29 @@
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  scroll-margin-top: 5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.day-group:target {
+  scroll-margin-top: 5rem;
+  animation: day-target-glow 2.5s ease-out;
+}
+
+@keyframes day-target-glow {
+  0% {
+    outline: 2px solid var(--accent-warm);
+    background: var(--accent-warm-subtle);
+  }
+  70% {
+    outline: 2px solid var(--accent-warm-subtle);
+    background: var(--accent-warm-subtle);
+  }
+  100% {
+    outline: 2px solid transparent;
+    background: transparent;
+  }
 }
 
 .day-heading {
@@ -274,10 +310,19 @@
   line-height: 1.65;
 }
 
+.meal-description small,
+.intro-text small,
+.outro-prose small {
+  font-size: 0.84em;
+  color: var(--text-muted);
+  display: inline;
+}
+
 .itemized-bullets {
-  list-style-type: disc;
-  padding-left: 1.25rem;
-  margin-top: 0.4rem;
+  list-style: none;
+  list-style-type: none;
+  padding-left: 1.5rem;
+  margin: 0.45rem 0;
   color: var(--text-muted);
   font-size: 0.88rem;
   display: flex;
@@ -533,4 +578,5 @@
   .outro-media { width: 100%; height: 220px; }
   .month-header-card { padding: 1.25rem; }
   .month-main-title { font-size: 1.65rem; }
+  .day-group, .day-group:target { scroll-margin-top: 4.25rem; }
 }

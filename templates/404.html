@@ -1,0 +1,32 @@
+﻿{% extends "base.html" %}
+
+{% block title %}404 — Dish Not Found{% endblock %}
+
+{% block content %}
+<div class="error-page-container">
+  <div class="error-card">
+    
+    <div class="error-avatar-wrapper">
+      <img src="{{ root_path }}{{ site_config.author.avatar }}" alt="Bewildered Mutsumi" class="error-avatar">
+    </div>
+
+    <div class="error-code">404</div>
+    <h1 class="error-title">🍽️ Dish Not Found</h1>
+    
+    <p class="error-message">
+      The meal, log, or secret recipe you're looking for either doesn't exist, was renamed, or has already been licked clean by Lord Junn.
+    </p>
+
+    <div class="error-actions">
+      <a href="{{ root_path }}index.html" class="btn-error primary">🏠 Return to Home</a>
+      <a href="{{ root_path }}archives.html" class="btn-error secondary">📚 Food Archives Hub</a>
+      <a href="{{ root_path }}all.html" class="btn-error secondary">🔍 Search All Logs</a>
+    </div>
+
+    <div class="error-quote">
+      "Error 404: Budget intact, but stomach remains empty."
+    </div>
+
+  </div>
+</div>
+{% endblock %}

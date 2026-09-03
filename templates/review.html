@@ -243,10 +243,12 @@
     }
 
     function autoPairAll() {
-      // Auto-assign candidates 1-to-1 sequentially
+      // Auto-assign the most recent N candidates to the meals
+      const offset = Math.max(0, candidatesData.length - mealsData.length);
       mealsData.forEach((meal, idx) => {
-        if (idx < candidatesData.length) {
-          mapping[idx] = candidatesData[idx].url;
+        const candidateIdx = offset + idx;
+        if (candidateIdx < candidatesData.length) {
+          mapping[idx] = candidatesData[candidateIdx].url;
         } else {
           delete mapping[idx];
         }

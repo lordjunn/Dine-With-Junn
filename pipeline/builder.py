@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import csv
+import calendar
 import shutil
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -13,6 +15,56 @@ from pipeline.schema import MonthData, MonthAnalytics
 from pipeline.parser import MarkdownContentParser
 from pipeline.analytics import SpendingAnalyticsEngine
 
+def format_prose_markdown(text: str) -> str:
+    """Converts text to HTML:
+    - Single newline (\n) -> <br> (tight line break)
+    - Double newline (\n\n) -> <p> paragraph break
+    - Interleaved bullets (- Item) -> <ul class="itemized-bullets"><li>...</li></ul>
+    """
+    if not text:
+        return ""
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    html = re.sub(r'__(.+?)__', r'<strong>\1</strong>', html)
+    html = re.sub(r'~~(.+?)~~', r'<s>\1</s>', html)
+    html = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', html)
+
+    lines = html.splitlines()
+    out = []
+    in_ul = False
+    curr_paragraph = []
+
+    def flush_p():
+        nonlocal curr_paragraph
+        if curr_paragraph:
+            out.append("<p>" + "<br>".join(curr_paragraph) + "</p>")
+            curr_paragraph = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            flush_p()
+            if not in_ul:
+                out.append('<ul class="itemized-bullets">')
+                in_ul = True
+            bullet_content = stripped[2:].strip()
+            out.append(f"<li>{bullet_content}</li>")
+        elif not stripped:
+            flush_p()
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+        else:
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            curr_paragraph.append(stripped)
+
+    flush_p()
+    if in_ul:
+        out.append("</ul>")
+
+    return "".join(out)
+
 class SiteBuilder:
     """Static site generator compiling Markdown content and Jinja2 templates into /dist."""
 
@@ -21,12 +73,13 @@ class SiteBuilder:
         self.dist_dir = Path(dist_dir) if dist_dir else DIST_DIR
         self.parser = MarkdownContentParser(self.content_dir)
         self.analytics_engine = SpendingAnalyticsEngine()
+        self.site_config = load_site_config()
 
     def build_all(self):
         """Executes the full static site build process."""
         print(f"[*] Starting build process...")
         self.dist_dir.mkdir(parents=True, exist_ok=True)
-        site_config = load_site_config()
+        site_config = self.site_config
 
         # 1. Parse all months
         months_data: List[tuple[MonthData, MonthAnalytics]] = []
@@ -107,6 +160,20 @@ class SiteBuilder:
             }
         )
 
+        # 6.5 Render Custom 404 Page
+        self._render_page(
+            jinja_env,
+            "404.html",
+            self.dist_dir / "404.html",
+            {
+                "root_path": "",
+                "active_page": "404",
+                "site_config": site_config,
+                "latest_month_slug": latest_month_obj.slug,
+                "latest_month_title": latest_month_obj.title,
+            }
+        )
+
         # 7. Render Individual Monthly Pages
         for idx, (month_obj, analytics_obj) in enumerate(months_data):
             prev_month = months_data[idx - 1][0] if idx > 0 else None
@@ -142,10 +209,12 @@ class SiteBuilder:
         """Initializes Jinja2 environment if installed."""
         try:
             from jinja2 import Environment, FileSystemLoader, select_autoescape
-            return Environment(
+            env = Environment(
                 loader=FileSystemLoader(str(TEMPLATES_DIR)),
                 autoescape=select_autoescape(["html", "xml"])
             )
+            env.filters["md_format"] = format_prose_markdown
+            return env
         except ImportError:
             return None
 
@@ -202,6 +271,8 @@ class SiteBuilder:
             result = self._render_standalone_archives(result, ctx)
         elif template_name == "all.html":
             result = self._render_standalone_all(result, ctx)
+        elif template_name == "404.html":
+            result = self._render_standalone_404(result, ctx)
         elif template_name == "month.html":
             result = self._render_standalone_month(result, ctx)
 
@@ -241,8 +312,13 @@ class SiteBuilder:
         if latest:
             img_src = latest.archive.image or latest.outro.image
             img_html = f'<img src="{img_src}" alt="{latest.title}">' if img_src else '<div class="spotlight-placeholder">🍽️</div>'
+            label_nom_nom = ctx.get("site_config", {}).get("labels", {}).get("nom_nom_days", "Nom Nom Days")
+            if latest.nom_nom_days and latest.nom_nom_days > 0:
+                meta_html = f'<div class="spotlight-meta">{label_nom_nom}: <strong>{latest.nom_nom_days} days</strong></div>'
+            else:
+                meta_html = '<div class="spotlight-meta">Status: <strong style="color: #4ade80;">🌱 Ongoing Month</strong></div>'
+
             intro_trunc = (latest.intro_text[:220] + "...") if len(latest.intro_text) > 220 else latest.intro_text
-            days_count = latest.nom_nom_days or len(latest.days)
             month_name = latest.title.replace("Food Archive - ", "") if latest.title.startswith("Food Archive - ") else latest.title
             teaser_html = f'<div class="spotlight-teaser">"{latest.archive.teaser}"</div>' if latest.archive.teaser else ''
 
@@ -261,7 +337,7 @@ class SiteBuilder:
         <span class="spotlight-tag">Active / Latest Month</span>
         <h3 class="spotlight-title">{month_name}</h3>
         {teaser_html}
-        <div class="spotlight-meta">Nom Nom Days: <strong>{days_count} days</strong></div>
+        {meta_html}
         <p class="spotlight-prose">
           {intro_trunc}
         </p>
@@ -331,6 +407,12 @@ class SiteBuilder:
     def _render_standalone_all(self, html: str, ctx: Dict[str, Any]) -> str:
         return html
 
+    def _render_standalone_404(self, html: str, ctx: Dict[str, Any]) -> str:
+        root_path = ctx.get("root_path", "")
+        site_config = ctx.get("site_config", {})
+        avatar_path = site_config.get("author", {}).get("avatar", "images/avatars/mutsumi.png") if site_config else "images/avatars/mutsumi.png"
+        return html.replace("{{ site_config.author.avatar }}", avatar_path)
+
     def _render_standalone_month(self, html: str, ctx: Dict[str, Any]) -> str:
         month = ctx["month"]
         analytics = ctx["analytics"]
@@ -339,13 +421,26 @@ class SiteBuilder:
 
         # Month Title & Meta
         html = html.replace("{{ month.title }}", month.title)
-        days_stat = str(month.nom_nom_days or len(month.days))
-        html = html.replace("{{ month.nom_nom_days }}", days_stat)
+        
+        # Nom nom days badge
+        label_nom_nom = ctx.get("site_config", {}).get("labels", {}).get("nom_nom_days", "Nom nom days")
+        if month.nom_nom_days and month.nom_nom_days > 0:
+            nom_nom_block = f'<div class="nom-nom-stat"><span class="stat-label">{label_nom_nom}:</span><span class="stat-value">{month.nom_nom_days} days</span></div>'
+            html = re.sub(r'{%\s*if\s+month\.nom_nom_days.*?{%\s*endif\s*%}', nom_nom_block, html, flags=re.DOTALL)
+        else:
+            html = re.sub(r'{%\s*if\s+month\.nom_nom_days.*?{%\s*endif\s*%}', '', html, flags=re.DOTALL)
+
+        # Intro text with md_format
         if month.intro_text:
-            html = html.replace("{{ month.intro_text | replace('\\n', '<br>') | safe }}", month.intro_text.replace("\n", "<br>"))
+            intro_formatted = format_prose_markdown(month.intro_text)
+            html = html.replace("{{ month.intro_text | md_format | safe }}", intro_formatted)
+            html = html.replace("{{ month.intro_text | replace('\\n', '<br>') | safe }}", intro_formatted)
+            html = re.sub(r'{%\s*if\s+month\.intro_text\s*%}(.*?){%\s*endif\s*%}', r'\1', html, flags=re.DOTALL)
+        else:
+            html = re.sub(r'{%\s*if\s+month\.intro_text\s*%}.*?{%\s*endif\s*%}', '', html, flags=re.DOTALL)
 
         # Prev / Next
-        prev_link = f'<a href="{prev_m.slug}.html" class="nav-month-btn">&larr; {prev_m.title}</a>' if prev_m else ''
+        prev_link = f'<a href="{prev_m.slug}.html" class="nav-month-btn">&larr; {prev_m.title}</a>' if prev_m else '<a href="https://lordjunn.github.io/Food-MMU/Logs/Mar%2026.html" target="_blank" class="nav-month-btn">&larr; Food Archive - March 2026 ↗</a>'
         next_link = f'<a href="{next_m.slug}.html" class="nav-month-btn">{next_m.title} &rarr;</a>' if next_m else ''
         html = re.sub(r'{%\s*if\s+prev_month\s*%}.*?{%\s*endif\s*%}', prev_link, html, flags=re.DOTALL)
         html = re.sub(r'{%\s*if\s+next_month\s*%}.*?{%\s*endif\s*%}', next_link, html, flags=re.DOTALL)
@@ -357,14 +452,15 @@ class SiteBuilder:
         # 1. Generate Daily Stream Section
         days_html = []
         for day in month.days:
+            if not day.meals:
+                continue  # Skip days with no logged meals
+
             meals_html = []
             for meal in day.meals:
-                media_html = f'<div class="meal-media"><img class="meal-image" src="{meal.image}" alt="{meal.dish_name}" loading="lazy"></div>' if meal.image else ''
+                has_real_image = bool(meal.image and meal.image.strip('"\''))
+                media_html = f'<div class="meal-media"><img class="meal-image" src="{meal.image}" alt="{meal.dish_name}" loading="lazy"></div>' if has_real_image else ''
                 vendor_html = f'<span class="vendor-tag">[{meal.restaurant}]</span>' if meal.restaurant else ''
-                bullets_html = ""
-                if meal.items:
-                    bullets_html = '<ul class="itemized-bullets">' + "".join([f"<li>{b}</li>" for b in meal.items]) + '</ul>'
-                desc_html = f'<p>{meal.description.replace(chr(10), "<br>")}</p>' if meal.description else ''
+                desc_html = f'{format_prose_markdown(meal.description)}' if meal.description else ''
 
                 meals_html.append(f"""
                   <article class="meal-card">
@@ -372,20 +468,19 @@ class SiteBuilder:
                     <div class="meal-details">
                       <div class="meal-header-row">
                         <h3 class="meal-title"><span class="dish-name">{meal.dish_name}</span>{vendor_html}</h3>
-                        <span class="meal-price">{meal.price_str or 'Free'}</span>
+                        <span class="meal-price">{format_prose_markdown(meal.price_str or 'Free')}</span>
                       </div>
                       <div class="meal-type-badge">{meal.meal_type}</div>
                       <div class="meal-description-wrapper">
                         <div class="meal-description">
                           {desc_html}
-                          {bullets_html}
                         </div>
                       </div>
                     </div>
                   </article>""")
 
             days_html.append(f"""
-              <div class="day-group">
+              <div class="day-group" id="{day.date_str}">
                 <h2 class="day-heading">{day.date_str} ({day.day_of_week})</h2>
                 <div class="meals-list">
                   {"".join(meals_html)}
@@ -511,6 +606,13 @@ class SiteBuilder:
                 "nom_nom_days": month_obj.nom_nom_days,
                 "prose": month_obj.outro.prose,
                 "image": month_obj.outro.image or month_obj.archive.image,
+                "intro_text": month_obj.intro_text,
+                "era": month_obj.archive.era,
+                "teaser": month_obj.archive.teaser,
+                "starter_image": month_obj.archive.image,
+                "reasons": month_obj.reasons,
+                "has_ending": bool(month_obj.outro.prose or month_obj.outro.title),
+                "has_starter": bool(month_obj.intro_text),
                 "date": f"{month_obj.year}-{month_obj.month:02d}-28"
             })
 
@@ -535,9 +637,68 @@ class SiteBuilder:
         db_path = data_dir / "food_database.json"
 
         with open(db_path, "w", encoding="utf-8") as f:
-            json.dump({"meals": meals_records, "summaries": summaries_records}, f, indent=2)
+            json.dump({
+                "meals": meals_records,
+                "summaries": summaries_records,
+                "labels": self.site_config.get("labels", {"nom_nom_days": "Nom nom days"})
+            }, f, indent=2)
+
+        # Generate Legacy-Compatible CSV files
+        csv_items = []
+        for month_obj, _ in months_data:
+            for day in month_obj.days:
+                for meal in day.meals:
+                    date_str = f"{day.date_str} ({day.day_of_week})"
+                    desc_parts = []
+                    if meal.description:
+                        desc_parts.append(meal.description)
+                    if meal.items:
+                        items_html = "".join([f"<li>{it}</li>" for it in meal.items])
+                        desc_parts.append(f"<ul>{items_html}</ul>")
+                    full_desc = "<br>".join(desc_parts) if desc_parts else "No description"
+
+                    csv_items.append({
+                        "date": date_str,
+                        "dish_name": meal.dish_name,
+                        "restaurant_name": meal.restaurant if meal.restaurant else "No restaurant name",
+                        "price": meal.price_str if meal.price_str else f"RM {meal.price:.2f}",
+                        "meal_type": f"({meal.meal_type})" if not meal.meal_type.startswith("(") else meal.meal_type,
+                        "description": full_desc,
+                        "image": meal.image if meal.image else "No image"
+                    })
+
+        csv_endings = []
+        for month_obj, analytics_obj in months_data:
+            month_name = calendar.month_name[month_obj.month]
+            month_url = f"{month_name} {month_obj.year}"
+            title = month_obj.outro.title if month_obj.outro.title else "No summary entry"
+            price = f"RM {analytics_obj.total_cash_damage:,.2f}"
+            desc = month_obj.outro.prose.replace("\n", "<br>") if month_obj.outro.prose else "No description"
+            img = month_obj.outro.image or month_obj.archive.image or "No image"
+
+            csv_endings.append({
+                "month_url": month_url,
+                "title": title,
+                "price": price,
+                "description": desc,
+                "image": img
+            })
+
+        # Save to dist/data/ and project data/
+        for target_dir in [data_dir, BASE_DIR / "data"]:
+            target_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_dir / "menu_items2.csv", "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=['date', 'dish_name', 'restaurant_name', 'price', 'meal_type', 'description', 'image'])
+                writer.writeheader()
+                writer.writerows(csv_items)
+
+            with open(target_dir / "menu_endings.csv", "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'price', 'description', 'image'])
+                writer.writeheader()
+                writer.writerows(csv_endings)
 
         print(f"[*] Exported {len(meals_records)} meals and {len(summaries_records)} summaries to {db_path.name}")
+        print(f"[+] Generated legacy CSVs: menu_items2.csv ({len(csv_items)} rows), menu_endings.csv ({len(csv_endings)} rows)")
 
     def _generate_legacy_alias(self, month_obj: MonthData):
         """Generates compatibility alias files for legacy links like dist/Logs/Jul 26.html."""

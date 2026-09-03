@@ -28,9 +28,9 @@ class MarkdownContentParser:
         month = int(frontmatter_dict.get("month", 7))
         slug = str(frontmatter_dict.get("slug", f"{year:04d}-{month:02d}"))
         title = str(frontmatter_dict.get("title", f"Food Archive - {slug}"))
-        nom_nom_days = frontmatter_dict.get("nom_nom_days")
+        nom_nom_days = frontmatter_dict.get("nom_nom_days", frontmatter_dict.get("food_days"))
         if nom_nom_days is not None:
-            nom_nom_days = int(nom_nom_days)
+            nom_nom_days = self._clean_int(nom_nom_days)
 
         reasons = frontmatter_dict.get("reasons", [])
         if isinstance(reasons, str):
@@ -61,19 +61,24 @@ class MarkdownContentParser:
             if isinstance(item, dict):
                 etc_items.append(EtcExpenseItem(
                     label=str(item.get("label", "")),
-                    amount=float(item.get("amount", 0.0)),
-                    day=int(item["day"]) if item.get("day") is not None else None
+                    amount=self._clean_float(item.get("amount", 0.0)),
+                    day=self._clean_int(item.get("day"))
                 ))
 
         expenses = Expenses(
-            rental=float(expenses_raw.get("rental", 0.0)),
-            utilities=float(expenses_raw.get("utilities", 0.0)),
-            petrol=float(expenses_raw.get("petrol", 0.0)),
+            rental=self._clean_float(expenses_raw.get("rental", expenses_raw.get("Adulting fees", 0.0))),
+            utilities=self._clean_float(expenses_raw.get("utilities", 0.0)),
+            petrol=self._clean_float(expenses_raw.get("petrol", 0.0)),
             etc=etc_items
         )
 
         # Parse Daily Entries
         days = self._parse_body_days(body_text)
+
+        # Auto-compute active nom nom days if not explicitly overridden
+        active_days_with_meals = len([d for d in days if len(d.meals) > 0])
+        if nom_nom_days is None or nom_nom_days == 0:
+            nom_nom_days = active_days_with_meals
 
         return MonthData(
             year=year,
@@ -120,6 +125,37 @@ class MarkdownContentParser:
             if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
                 return s[1:-1].strip()
         return s
+
+    def _strip_inline_comment(self, s: str) -> str:
+        """Strips trailing # comments unless inside quotes."""
+        in_double = False
+        in_single = False
+        for idx, ch in enumerate(s):
+            if ch == '"' and not in_single:
+                in_double = not in_double
+            elif ch == "'" and not in_double:
+                in_single = not in_single
+            elif ch == '#' and not in_double and not in_single:
+                return s[:idx].strip()
+        return s.strip()
+
+    def _clean_float(self, val: Any) -> float:
+        if val is None:
+            return 0.0
+        if isinstance(val, (int, float)):
+            return float(val)
+        s = str(val).split("#")[0].strip().replace(",", "")
+        match = re.search(r'[-+]?\d*\.?\d+', s)
+        return float(match.group()) if match else 0.0
+
+    def _clean_int(self, val: Any) -> Optional[int]:
+        if val is None:
+            return None
+        if isinstance(val, int):
+            return val
+        s = str(val).split("#")[0].strip()
+        match = re.search(r'[-+]?\d+', s)
+        return int(match.group()) if match else None
 
     def _fallback_yaml_parser(self, yaml_text: str) -> Dict[str, Any]:
         """Pure-Python YAML parser for Dine with Junn frontmatter schema."""
@@ -270,12 +306,34 @@ class MarkdownContentParser:
                 raw_title = meal_chunks[idx].strip()
                 meal_body = meal_chunks[idx + 1] if idx + 1 < len(meal_chunks) else ""
 
-                dish_name = raw_title
+                dish_name = raw_title.strip()
                 restaurant = ""
-                if "[" in raw_title and raw_title.endswith("]"):
-                    dish_name, restaurant = raw_title[:-1].split("[", 1)
-                    dish_name = dish_name.strip()
-                    restaurant = restaurant.strip()
+
+                # Robust bracket matching: supports "Dish [Rest]" and "[Dish] [Rest]"
+                if dish_name.endswith("]") and "[" in dish_name:
+                    last_open = dish_name.rfind("[")
+                    restaurant = dish_name[last_open + 1:-1].strip()
+                    dish_name = dish_name[:last_open].strip()
+
+                # Clean any outer brackets from dish_name
+                if dish_name.startswith("[") and dish_name.endswith("]"):
+                    dish_name = dish_name[1:-1].strip()
+
+                # Check if this is an unfilled template placeholder slot
+                is_placeholder_name = (
+                    not dish_name 
+                    or dish_name.lower() in ("dish name", "[dish name]", "", "- price: rm", "- price:", "- meal:", "- image:")
+                    or dish_name.startswith("- Price:") 
+                    or dish_name.startswith("- Meal:") 
+                    or dish_name.startswith("- Image:")
+                )
+                is_placeholder_restaurant = (not restaurant or restaurant.lower() in ("restaurant", "[restaurant]", ""))
+                
+                if is_placeholder_name and is_placeholder_restaurant:
+                    continue
+
+                if is_placeholder_name and not is_placeholder_restaurant:
+                    dish_name = f"Meal [{restaurant}]"
 
                 # Parse attributes from lines starting with - Key: Value
                 price_str = ""
@@ -287,6 +345,7 @@ class MarkdownContentParser:
 
                 body_lines = meal_body.strip().splitlines()
                 reading_meta = True
+                raw_content_lines = []
 
                 for line in body_lines:
                     line_s = line.strip()
@@ -296,16 +355,14 @@ class MarkdownContentParser:
                     elif reading_meta and line_s.startswith("- Meal:"):
                         meal_type = line_s[len("- Meal:"):].strip()
                     elif reading_meta and line_s.startswith("- Image:"):
-                        image_path = line_s[len("- Image:"):].strip()
+                        image_path = self._unquote(line_s[len("- Image:"):].strip())
                     else:
                         reading_meta = False
+                        raw_content_lines.append(line)
                         if line_s.startswith("- ") or line_s.startswith("* "):
-                            # Bullet point (ingredient/item detail)
                             item_bullets.append(line_s[2:].strip())
-                        elif line_s:
-                            desc_lines.append(line_s)
 
-                description = "\n\n".join(desc_lines).strip()
+                description = "\n".join(raw_content_lines).strip()
 
                 meals.append(MealItem(
                     dish_name=dish_name,

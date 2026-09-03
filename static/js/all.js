@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
   const searchBox = document.getElementById('searchBox');
   const sortDropdown = document.getElementById('sortDropdown');
-  const toggleButton = document.getElementById('toggleSourceButton');
+  const viewModeDropdown = document.getElementById('viewModeDropdown');
   const insightsControls = document.getElementById('insightsControls');
   const insightMetricDropdown = document.getElementById('insightMetricDropdown');
   const showInsightButton = document.getElementById('showInsightButton');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const viewHeading = document.getElementById('viewHeading');
   const resultsList = document.getElementById('resultsList');
 
-  let currentMode = 'food'; // 'food' or 'summary'
+  let currentMode = 'food'; // 'food', 'endings', or 'starters'
   let rawDatabase = { meals: [], summaries: [] };
   let allItems = [];
   let isInsightOpen = false;
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(r => r.json())
     .then(data => {
       rawDatabase = data;
-      setMode('food');
+      setMode(viewModeDropdown ? viewModeDropdown.value : 'food');
     })
     .catch(err => {
       console.error('Failed to load food_database.json:', err);
@@ -52,17 +52,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const descOpt = sortDropdown.querySelector('option[value="price-desc"]');
     if (!ascOpt || !descOpt) return;
 
-    if (currentMode === 'summary') {
-      ascOpt.textContent = 'Sort by Metric (Lowest)';
-      descOpt.textContent = 'Sort by Metric (Highest)';
-    } else {
+    if (currentMode === 'food') {
       ascOpt.textContent = 'Sort by Price (Lowest)';
       descOpt.textContent = 'Sort by Price (Highest)';
+    } else {
+      ascOpt.textContent = 'Sort by Metric (Lowest)';
+      descOpt.textContent = 'Sort by Metric (Highest)';
     }
   }
 
   function shouldShowInsightsControls() {
-    if (currentMode !== 'summary') return false;
+    if (currentMode === 'food') return false;
     const sortVal = String(sortDropdown.value || '');
     return sortVal === 'price-asc' || sortVal === 'price-desc';
   }
@@ -81,15 +81,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function setMode(mode) {
     currentMode = mode;
+    if (viewModeDropdown && viewModeDropdown.value !== mode) {
+      viewModeDropdown.value = mode;
+    }
     updateSortDropdownLabels();
 
-    if (currentMode === 'summary') {
+    if (currentMode === 'starters') {
       allItems = rawDatabase.summaries || [];
-      toggleButton.textContent = 'Show All Food Items';
-      viewHeading.textContent = 'All Monthly Summaries';
+      viewHeading.textContent = 'All Month Starters & Predictions';
+    } else if (currentMode === 'endings') {
+      allItems = rawDatabase.summaries || [];
+      viewHeading.textContent = 'All Month Endings & Retrospectives';
     } else {
       allItems = rawDatabase.meals || [];
-      toggleButton.textContent = 'Show Monthly Summaries';
       viewHeading.textContent = 'All Food Logs';
       isInsightOpen = false;
       insightsPanel.style.display = 'none';
@@ -154,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function filterItems(items, query) {
     const { terms, priceFilters } = parseSearchQuery(query);
-    const isMetricSort = currentMode === 'summary' && (sortDropdown.value === 'price-asc' || sortDropdown.value === 'price-desc');
+    const isMetricSort = currentMode !== 'food' && (sortDropdown.value === 'price-asc' || sortDropdown.value === 'price-desc');
     const activeMetric = isMetricSort ? insightMetricDropdown.value : 'total';
 
     return items.filter(item => {
@@ -180,7 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
         (item.title || '') + ' ' +
         (item.outro_title || '') + ' ' +
         (item.month_slug || '') + ' ' +
-        (item.prose || '')
+        (item.prose || '') + ' ' +
+        (item.intro_text || '') + ' ' +
+        (item.era || '') + ' ' +
+        (item.teaser || '') + ' ' +
+        (item.reasons ? item.reasons.join(' ') : '')
       ).toLowerCase();
 
       return terms.every(t => haystack.includes(t));
@@ -189,10 +197,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function sortItems(items, sortKey) {
     const copy = [...items];
-    const isMetricSort = currentMode === 'summary' && (sortKey === 'price-asc' || sortKey === 'price-desc');
+    const isMetricSort = currentMode !== 'food' && (sortKey === 'price-asc' || sortKey === 'price-desc');
     const activeMetric = isMetricSort ? insightMetricDropdown.value : 'total';
 
-    if (currentMode === 'summary' && isMetricSort) {
+    if (currentMode !== 'food' && isMetricSort) {
       if (sortKey === 'price-asc') {
         return copy.sort((a, b) => {
           const valA = getMetricValue(a, activeMetric);
@@ -229,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const query = searchBox.value;
     const sortKey = sortDropdown.value;
-    const isMetricSort = currentMode === 'summary' && (sortKey === 'price-asc' || sortKey === 'price-desc');
+    const isMetricSort = currentMode !== 'food' && (sortKey === 'price-asc' || sortKey === 'price-desc');
     const activeMetric = isMetricSort ? insightMetricDropdown.value : 'total';
 
     const filtered = filterItems(allItems, query);
@@ -262,18 +270,67 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             ${item.description ? `<p class="search-desc">${item.description.replace(/\n/g, '<br>')}</p>` : ''}
             <div class="search-date-link">
-              Logged on: <a href="${item.month_slug}.html">${item.date} (${item.day_of_week}) &rarr;</a>
+              Logged on: <a href="${item.month_slug}.html#${item.date}">${item.date} (${item.day_of_week}) &rarr;</a>
             </div>
           </div>
         </article>
       `).join('');
+    } else if (currentMode === 'starters') {
+      // Month Starters View (Predictions & Openings)
+      resultsList.innerHTML = sorted.map(item => {
+        const monthLabel = item.title ? item.title.replace('Food Archive - ', '') : item.month_slug;
+        const imageSrc = item.starter_image || item.image;
+        const eraTag = item.era ? `<span class="badge" style="background: rgba(140, 0, 255, 0.15); color: #c084fc; border: 1px solid rgba(140, 0, 255, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; margin-left: 0.5rem;">${item.era}</span>` : '';
+        const reasonsHtml = (item.reasons && item.reasons.length) 
+          ? `<div style="font-size: 0.8rem; color: #38bdf8; margin: 0.3rem 0;"><strong>Key Schedule:</strong> ${item.reasons.join(', ')}</div>` 
+          : '';
+
+        const labelNomNom = (rawDatabase.labels && rawDatabase.labels.nom_nom_days) || 'Nom Nom Days';
+        return `
+        <article class="search-item-card summary-item-card">
+          ${imageSrc ? `
+            <div class="search-item-media">
+              <img src="${imageSrc}" alt="${item.title}" loading="lazy">
+            </div>
+          ` : ''}
+          <div class="search-item-info">
+            <div class="search-item-header">
+              <h3 class="search-dish-name">Opening Thoughts - ${monthLabel} ${eraTag}</h3>
+              <span class="search-price">RM ${Number(item.total_cash_damage || 0).toFixed(2)}</span>
+            </div>
+            <div class="search-meta-row">
+              <span><strong>${monthLabel}</strong></span>
+              ${item.teaser ? `<span>•</span><span><em>"${item.teaser}"</em></span>` : ''}
+              <span>•</span>
+              <span>${labelNomNom}: ${item.nom_nom_days || 'N/A'}</span>
+            </div>
+            ${reasonsHtml}
+            ${item.intro_text ? `
+              <div class="summary-prose-scrollbox">
+                ${item.intro_text.replace(/\n/g, '<br>')}
+              </div>
+            ` : `
+              <div class="summary-prose-scrollbox" style="color: var(--text-muted); font-style: italic;">
+                No opening predictions recorded.
+              </div>
+            `}
+            <div class="search-date-link">
+              <a href="${item.month_slug}.html">Open Full Month (${item.month_slug}) &rarr;</a>
+            </div>
+          </div>
+        </article>
+      `;}).join('');
     } else {
-      // Monthly Summaries View
+      // Month Endings View (Retrospectives)
+      const labelNomNom = (rawDatabase.labels && rawDatabase.labels.nom_nom_days) || 'Nom Nom Days';
       resultsList.innerHTML = sorted.map(item => {
         const displayTitle = item.outro_title || item.title || item.month_slug;
         const monthLabel = item.title ? item.title.replace('Food Archive - ', '') : item.month_slug;
+        const isOngoing = !item.has_ending;
+        const ongoingBadge = isOngoing 
+          ? `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; margin-left: 0.5rem;">🌱 Ongoing Month</span>` 
+          : '';
 
-        // Determine price tag display based on sort metric
         let priceTagHtml = '';
         if (isMetricSort && activeMetric !== 'total') {
           const metricVal = getMetricValue(item, activeMetric);
@@ -283,16 +340,24 @@ document.addEventListener('DOMContentLoaded', function() {
           priceTagHtml = `<span class="search-price">RM ${Number(item.total_cash_damage || 0).toFixed(2)}</span>`;
         }
 
+        const proseContent = item.prose 
+          ? item.prose.replace(/\n/g, '<br>')
+          : (item.intro_text 
+              ? `<em style="color: #4ade80;">[Month is active — showing Day 1 Opening Thoughts preview]</em><br><br>${item.intro_text.replace(/\n/g, '<br>')}`
+              : `<em style="color: var(--text-muted);">No month ending recorded yet.</em>`);
+
+        const imageSrc = item.image || item.starter_image;
+
         return `
         <article class="search-item-card summary-item-card">
-          ${item.image ? `
+          ${imageSrc ? `
             <div class="search-item-media">
-              <img src="${item.image}" alt="${displayTitle}" loading="lazy">
+              <img src="${imageSrc}" alt="${displayTitle}" loading="lazy">
             </div>
           ` : ''}
           <div class="search-item-info">
             <div class="search-item-header">
-              <h3 class="search-dish-name">${displayTitle}</h3>
+              <h3 class="search-dish-name">${displayTitle} ${ongoingBadge}</h3>
               ${priceTagHtml}
             </div>
             <div class="search-meta-row">
@@ -300,13 +365,11 @@ document.addEventListener('DOMContentLoaded', function() {
               <span>•</span>
               <span>Pure Food: RM ${Number(item.purely_food || 0).toFixed(2)}</span>
               <span>•</span>
-              <span>Nom Nom Days: ${item.nom_nom_days || 'N/A'}</span>
+              <span>${labelNomNom}: ${item.nom_nom_days || 'N/A'}</span>
             </div>
-            ${item.prose ? `
-              <div class="summary-prose-scrollbox">
-                ${item.prose.replace(/\n/g, '<br>')}
-              </div>
-            ` : ''}
+            <div class="summary-prose-scrollbox">
+              ${proseContent}
+            </div>
             <div class="search-date-link">
               <a href="${item.month_slug}.html">Open Full Month (${item.month_slug}) &rarr;</a>
             </div>
@@ -369,11 +432,13 @@ document.addEventListener('DOMContentLoaded', function() {
     render();
   });
 
-  insightMetricDropdown.addEventListener('change', render);
+  if (viewModeDropdown) {
+    viewModeDropdown.addEventListener('change', () => {
+      setMode(viewModeDropdown.value);
+    });
+  }
 
-  toggleButton.addEventListener('click', () => {
-    setMode(currentMode === 'food' ? 'summary' : 'food');
-  });
+  insightMetricDropdown.addEventListener('change', render);
 
   showInsightButton.addEventListener('click', () => {
     isInsightOpen = !isInsightOpen;

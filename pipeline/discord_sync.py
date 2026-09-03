@@ -1,5 +1,6 @@
 import os
 import json
+import calendar
 import urllib.request
 import urllib.parse
 import webbrowser
@@ -24,21 +25,42 @@ class DiscordImageSyncer:
         self.parser = MarkdownContentParser()
         self.processor = ImageProcessor()
 
-    def fetch_candidates(self, limit: int = 30, mock: bool = False) -> List[Dict[str, Any]]:
+    def fetch_candidates(self, limit: int = 50, mock: bool = False) -> List[Dict[str, Any]]:
         """Fetches candidate image attachments from Discord channel or generates mock items."""
         if mock or not self.bot_token or not self.channel_id or "your_" in self.bot_token:
-            return self._generate_mock_candidates()
-
-        url = f"https://discord.com/api/v10/channels/{self.channel_id}/messages?limit={limit}"
-        req = urllib.request.Request(url, headers={
-            "Authorization": f"Bot {self.bot_token}",
-            "User-Agent": "DineWithJunn-Sync/2.0"
-        })
+            return self._generate_mock_candidates(limit=limit)
 
         candidates = []
+        before = None
         try:
-            with urllib.request.urlopen(req) as resp:
-                messages = json.loads(resp.read().decode("utf-8"))
+            import requests
+            import urllib3
+            urllib3.disable_warnings()
+
+            while len(candidates) < limit:
+                page_limit = min(100, max(limit, 20))
+                url = f"https://discord.com/api/v10/channels/{self.channel_id}/messages?limit={page_limit}"
+                if before:
+                    url += f"&before={before}"
+
+                resp = requests.get(
+                    url,
+                    headers={
+                        "Authorization": f"Bot {self.bot_token}",
+                        "User-Agent": "DineWithJunn-Sync/2.0"
+                    },
+                    timeout=15,
+                    verify=False
+                )
+
+                if resp.status_code != 200:
+                    print(f"[!] Discord API returned HTTP {resp.status_code}: {resp.text}")
+                    break
+
+                messages = resp.json()
+                if not messages:
+                    break
+
                 for msg in messages:
                     for att in msg.get("attachments", []):
                         ct = att.get("content_type", "")
@@ -49,20 +71,39 @@ class DiscordImageSyncer:
                                 "url": att.get("url"),
                                 "thumbnail_url": att.get("proxy_url") or att.get("url")
                             })
+                    # Check embeds as fallback
+                    for embed in msg.get("embeds", []):
+                        if embed.get("type") == "image":
+                            e_url = embed.get("url") or embed.get("thumbnail", {}).get("url")
+                            if e_url:
+                                candidates.append({
+                                    "id": str(len(candidates) + 1),
+                                    "filename": "embed_image.png",
+                                    "url": e_url,
+                                    "thumbnail_url": e_url
+                                })
+
+                    if len(candidates) >= limit:
+                        break
+
+                before = messages[-1]["id"]
+
+            # Reverse to chronological order (earliest uploaded first)
+            candidates.reverse()
+            result = candidates[-limit:] if len(candidates) >= limit else candidates
+            print(f"[*] Fetched {len(result)} photo(s) from Discord (Pool: {limit}).")
+            return result
+
         except Exception as e:
             print(f"[!] Discord API fetch failed ({e}). Falling back to mock test candidates.")
-            return self._generate_mock_candidates()
+            return self._generate_mock_candidates(limit=limit)
 
-        return candidates
-
-    def _generate_mock_candidates(self) -> List[Dict[str, Any]]:
+    def _generate_mock_candidates(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Generates mock photo candidates for offline testing."""
-        # Use existing sample images from July if available, or placeholder data
         candidates = []
         july_dir = IMAGES_DIR / "2026" / "July"
         if july_dir.exists():
-            for p in sorted(july_dir.glob("*.png"))[:6]:
-                # Serve as local relative path
+            for p in sorted(july_dir.glob("*.png"))[:limit]:
                 rel_url = f"/images/2026/July/{p.name}"
                 candidates.append({
                     "id": p.stem,
@@ -73,8 +114,7 @@ class DiscordImageSyncer:
                 })
 
         if not candidates:
-            # Fallback inline SVG / dummy urls
-            for i in range(1, 5):
+            for i in range(1, limit + 1):
                 candidates.append({
                     "id": f"mock_{i}",
                     "filename": f"sample_photo_{i}.png",
@@ -84,7 +124,7 @@ class DiscordImageSyncer:
 
         return candidates
 
-    def launch_review_server(self, slug: str, mock: bool = False, port: int = REVIEW_SERVER_PORT):
+    def launch_review_server(self, slug: str, limit: Optional[int] = None, mock: bool = False, port: int = REVIEW_SERVER_PORT):
         """Starts a temporary local webserver for visual confirmation in the default browser."""
         md_path = CONTENT_DIR / f"{slug}.md"
         if not md_path.exists():
@@ -92,7 +132,18 @@ class DiscordImageSyncer:
             return
 
         month_data = self.parser.parse_file(md_path)
-        candidates = self.fetch_candidates(mock=mock)
+
+        # Respect CLI limit -> .env DISCORD_FETCH_LIMIT -> default 50
+        env_limit = os.getenv("DISCORD_FETCH_LIMIT")
+        if limit is not None:
+            fetch_count = limit
+        elif env_limit and env_limit.strip().isdigit():
+            fetch_count = int(env_limit.strip())
+        else:
+            fetch_count = 50
+
+        print(f"[*] Fetching candidate image pool ({fetch_count} photos max) for {month_data.title}...")
+        candidates = self.fetch_candidates(limit=fetch_count, mock=mock)
 
         # Collect meals that have empty or missing images
         meals_list = []
@@ -186,7 +237,7 @@ class DiscordImageSyncer:
         """Processes each confirmed image and updates Markdown file."""
         assignments = data.get("assignments", [])
         year = month_data.year
-        month_name = "August" if month_data.month == 8 else "July"
+        month_name = calendar.month_name[month_data.month]
 
         for idx, item in enumerate(assignments, start=1):
             dish_name = item.get("dish_name", "")
@@ -204,7 +255,11 @@ class DiscordImageSyncer:
             elif url.startswith("http://") or url.startswith("https://"):
                 # Download remote image temporarily
                 temp_dl = BASE_DIR / f"temp_dl_{idx}.png"
-                urllib.request.urlretrieve(url, temp_dl)
+                import requests
+                r = requests.get(url, stream=True, timeout=20)
+                with open(temp_dl, "wb") as f:
+                    for chunk in r.iter_content(1024):
+                        f.write(chunk)
                 src_path = temp_dl
             else:
                 src_path = Path(url)

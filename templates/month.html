@@ -14,6 +14,8 @@
     <div class="month-nav-prev">
       {% if prev_month %}
         <a href="{{ root_path }}{{ prev_month.slug }}.html" class="nav-month-btn">&larr; {{ prev_month.title }}</a>
+      {% else %}
+        <a href="https://lordjunn.github.io/Food-MMU/Logs/Mar%2026.html" target="_blank" class="nav-month-btn">&larr; Food Archive - March 2026 ↗</a>
       {% endif %}
     </div>
     <div class="month-nav-hub">
@@ -32,9 +34,9 @@
     <h1 class="month-main-title">{{ month.title }}</h1>
 
     <div class="month-meta-box">
-      {% if month.nom_nom_days %}
+      {% if month.nom_nom_days and month.nom_nom_days > 0 %}
         <div class="nom-nom-stat">
-          <span class="stat-label">Nom nom days:</span>
+          <span class="stat-label">{{ site_config.labels.nom_nom_days if (site_config.labels and site_config.labels.nom_nom_days) else 'Nom nom days' }}:</span>
           <span class="stat-value">{{ month.nom_nom_days }} days</span>
         </div>
       {% endif %}
@@ -55,22 +57,22 @@
       <div class="intro-prose-box">
         <h3>Opening Thoughts & Predictions</h3>
         <div class="intro-text">
-          {{ month.intro_text | replace('\n', '<br>') | safe }}
+          {{ month.intro_text | md_format | safe }}
         </div>
       </div>
     {% endif %}
   </header>
 
   <!-- Daily Meal Stream -->
-  <!-- Daily Meal Stream -->
   <section class="daily-stream">
     {% for day in month.days %}
-      <div class="day-group">
+      {% if day.meals %}
+      <div class="day-group" id="{{ day.date_str }}">
         <h2 class="day-heading">{{ day.date_str }} ({{ day.day_of_week }})</h2>
         <div class="meals-list">
           {% for meal in day.meals %}
             <article class="meal-card">
-              {% if meal.image %}
+              {% if meal.image and meal.image != '""' and meal.image != "''" %}
                 <div class="meal-media">
                   <img class="meal-image" src="{{ root_path }}{{ meal.image }}" alt="{{ meal.dish_name }}" loading="lazy">
                 </div>
@@ -83,23 +85,14 @@
                       <span class="vendor-tag">[{{ meal.restaurant }}]</span>
                     {% endif %}
                   </h3>
-                  <span class="meal-price">{{ meal.price_str | safe }}</span>
+                  <span class="meal-price">{{ meal.price_str | md_format | safe }}</span>
                 </div>
                 <div class="meal-type-badge">{{ meal.meal_type }}</div>
 
-                {% if meal.description or meal.items %}
+                {% if meal.description %}
                   <div class="meal-description-wrapper">
                     <div class="meal-description">
-                      {% if meal.description %}
-                        <p>{{ meal.description | replace('\n', '<br>') | safe }}</p>
-                      {% endif %}
-                      {% if meal.items %}
-                        <ul class="itemized-bullets">
-                          {% for item in meal.items %}
-                            <li>{{ item }}</li>
-                          {% endfor %}
-                        </ul>
-                      {% endif %}
+                      {{ meal.description | md_format | safe }}
                     </div>
                   </div>
                 {% endif %}
@@ -108,6 +101,7 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
     {% endfor %}
   </section>
 
@@ -127,7 +121,7 @@
 
         {% if month.outro.prose %}
           <div class="description-scrollbox">
-            {{ month.outro.prose | replace('\n', '<br>') | safe }}
+            {{ month.outro.prose | md_format | safe }}
           </div>
         {% endif %}
       </div>
@@ -209,6 +203,25 @@
       </div>
     </div>
   </section>
+
+  <!-- Month Navigation Footer -->
+  <div class="month-nav-header month-nav-footer">
+    <div class="month-nav-prev">
+      {% if prev_month %}
+        <a href="{{ root_path }}{{ prev_month.slug }}.html" class="nav-month-btn">&larr; {{ prev_month.title }}</a>
+      {% else %}
+        <a href="https://lordjunn.github.io/Food-MMU/Logs/Mar%2026.html" target="_blank" class="nav-month-btn">&larr; Food Archive - March 2026 ↗</a>
+      {% endif %}
+    </div>
+    <div class="month-nav-hub">
+      <a href="{{ root_path }}archives.html" class="nav-hub-btn">📚 Archives Hub</a>
+    </div>
+    <div class="month-nav-next">
+      {% if next_month %}
+        <a href="{{ root_path }}{{ next_month.slug }}.html" class="nav-month-btn">{{ next_month.title }} &rarr;</a>
+      {% endif %}
+    </div>
+  </div>
 
 </div>
 {% endblock %}

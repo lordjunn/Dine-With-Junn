@@ -132,6 +132,8 @@
   gap: 0.35rem;
   text-align: center;
   flex-grow: 1;
+  min-height: 96px;
+  justify-content: flex-start;
 }
 
 .archive-month-title {
@@ -147,7 +149,11 @@
   font-size: 0.88rem;
   font-style: italic;
   line-height: 1.45;
-  flex-grow: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* MMU Heritage Card */

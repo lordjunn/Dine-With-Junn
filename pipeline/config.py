@@ -16,6 +16,19 @@ try:
 except ImportError:
     pass
 
+# Pure Python fallback .env parser
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k not in os.environ or not os.environ[k]:
+                    os.environ[k] = v
+
 # Discord Bot Configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID", "")
@@ -41,13 +54,19 @@ def load_site_config() -> dict:
         "site": {
             "title": "Dine with Junn",
             "legacy_mmu_url": "https://lordjunn.github.io/Food-MMU/index.html"
+        },
+        "labels": {
+            "nom_nom_days": "Nom nom days"
         }
     }
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {**default_cfg, **data}
+                result = {**default_cfg, **data}
+                if "labels" in data:
+                    result["labels"] = {**default_cfg["labels"], **data["labels"]}
+                return result
         except Exception:
             pass
     return default_cfg

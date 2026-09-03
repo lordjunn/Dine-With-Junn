@@ -65,9 +65,9 @@ def cmd_serve(args):
 
 def cmd_sync_images(args):
     """Fetches photos from Discord and launches visual review UI."""
-    from pipeline.discord_sync import DiscordImageSync
-    syncer = DiscordImageSync()
-    syncer.run_review_flow(args.slug, mock=args.mock)
+    from pipeline.discord_sync import DiscordImageSyncer
+    syncer = DiscordImageSyncer()
+    syncer.launch_review_server(args.slug, limit=args.limit, mock=args.mock)
 
 def cmd_new_month(args):
     """Generates a complete new month Markdown template with exact calendar dates."""
@@ -119,21 +119,30 @@ def cmd_new_month(args):
         day_str = day_date.strftime("%Y-%m-%d")
         weekday_str = day_date.strftime("%A")
 
-        if day == 1:
-            days_blocks.append(f"""## {day_str} ({weekday_str})
+        days_blocks.append(f"""## {day_str} ({weekday_str})
+
+### [Dish Name] [Restaurant]
+- Price: RM 0.00
+- Meal: Breakfast
+- Image: ""
+
+Breakfast review...
 
 ### [Dish Name] [Restaurant]
 - Price: RM 0.00
 - Meal: Lunch
 - Image: ""
 
-Meal review and opening impressions...
+Lunch review...
 - Portion: details
 - Taste: details
-""")
-        else:
-            days_blocks.append(f"""## {day_str} ({weekday_str})
 
+### [Dish Name] [Restaurant]
+- Price: RM 0.00
+- Meal: Dinner
+- Image: ""
+
+Dinner review...
 """)
 
     # 3. Assemble Full Markdown File
@@ -281,6 +290,7 @@ def main():
     # Sync-images command
     sync_parser = subparsers.add_parser("sync-images", help="Fetch photos from Discord and launch visual review UI")
     sync_parser.add_argument("slug", type=str, help="Month slug (e.g. '2026-08')")
+    sync_parser.add_argument("--limit", type=int, default=None, help="Number of Discord photos to fetch (defaults to number of meals)")
     sync_parser.add_argument("--mock", action="store_true", help="Run in mock/offline mode with sample photos")
 
     args = parser.parse_args()
