@@ -378,10 +378,13 @@ class MarkdownContentParser:
         return meals
 
     def _parse_price_value(self, price_str: str) -> float:
-        """Parses a price string like 'RM 8.50', 'Free', or '<s>RM 5.50?</s> Free' into float."""
+        """Parses a price string like 'RM 8.50', 'Free', or 'RM ~~10.50~~ 10.00' into float."""
         if not price_str:
             return 0.0
-        cleaned = re.sub(r'<[^>]*>', ' ', price_str).strip()
+        # Discard strikethrough portions first so old struck-through prices aren't counted
+        stripped = re.sub(r'<s>.*?</s>', ' ', price_str, flags=re.I)
+        stripped = re.sub(r'~~.*?~~', ' ', stripped)
+        cleaned = re.sub(r'<[^>]*>', ' ', stripped).strip()
         if "free" in cleaned.lower():
             return 0.0
         nums = re.findall(r'\d+(?:\.\d+)?', cleaned)

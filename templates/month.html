@@ -85,7 +85,7 @@
                       <span class="vendor-tag">[{{ meal.restaurant }}]</span>
                     {% endif %}
                   </h3>
-                  <span class="meal-price">{{ meal.price_str | md_format | safe }}</span>
+                  <span class="meal-price">{{ meal.price_str | md_inline | safe }}</span>
                 </div>
                 <div class="meal-type-badge">{{ meal.meal_type }}</div>
 

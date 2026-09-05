@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="search-item-info">
             <div class="search-item-header">
               <h3 class="search-dish-name">${item.dish_name}</h3>
-              <span class="search-price">${item.price_str || 'Free'}</span>
+              <span class="search-price">${(item.price_str || 'Free').replace(/~~(.+?)~~/g, '<s>$1</s>')}</span>
             </div>
             <div class="search-meta-row">
               ${item.restaurant ? `<span class="search-vendor">[${item.restaurant}]</span>` : ''}

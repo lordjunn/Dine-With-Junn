@@ -15,6 +15,16 @@ from pipeline.schema import MonthData, MonthAnalytics
 from pipeline.parser import MarkdownContentParser
 from pipeline.analytics import SpendingAnalyticsEngine
 
+def format_inline_markdown(text: str) -> str:
+    """Converts inline markdown like **bold**, ~~strikethrough~~, and *italics* without wrapping in paragraphs."""
+    if not text:
+        return ""
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    html = re.sub(r'__(.+?)__', r'<strong>\1</strong>', html)
+    html = re.sub(r'~~(.+?)~~', r'<s>\1</s>', html)
+    html = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', html)
+    return html.strip()
+
 def format_prose_markdown(text: str) -> str:
     """Converts text to HTML:
     - Single newline (\n) -> <br> (tight line break)
@@ -214,6 +224,7 @@ class SiteBuilder:
                 autoescape=select_autoescape(["html", "xml"])
             )
             env.filters["md_format"] = format_prose_markdown
+            env.filters["md_inline"] = format_inline_markdown
             return env
         except ImportError:
             return None
@@ -468,7 +479,7 @@ class SiteBuilder:
                     <div class="meal-details">
                       <div class="meal-header-row">
                         <h3 class="meal-title"><span class="dish-name">{meal.dish_name}</span>{vendor_html}</h3>
-                        <span class="meal-price">{format_prose_markdown(meal.price_str or 'Free')}</span>
+                        <span class="meal-price">{format_inline_markdown(meal.price_str or 'Free')}</span>
                       </div>
                       <div class="meal-type-badge">{meal.meal_type}</div>
                       <div class="meal-description-wrapper">

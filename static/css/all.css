@@ -310,6 +310,12 @@
   color: var(--accent-green);
 }
 
+.search-price s {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+
 .search-meta-row {
   display: flex;
   align-items: center;
