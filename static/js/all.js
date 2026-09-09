@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <span><strong>${monthLabel}</strong></span>
               ${item.teaser ? `<span>•</span><span><em>"${item.teaser}"</em></span>` : ''}
               <span>•</span>
-              <span>${labelNomNom}: ${item.nom_nom_days || 'N/A'}</span>
+              <span>${labelNomNom}: ${item.nom_nom_days ? item.nom_nom_days + (item.nom_nom_days === 1 ? ' day' : ' days') : 'N/A'}</span>
             </div>
             ${reasonsHtml}
             ${item.intro_text ? `
@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <span>•</span>
               <span>Pure Food: RM ${Number(item.purely_food || 0).toFixed(2)}</span>
               <span>•</span>
-              <span>${labelNomNom}: ${item.nom_nom_days || 'N/A'}</span>
+              <span>${labelNomNom}: ${item.nom_nom_days ? item.nom_nom_days + (item.nom_nom_days === 1 ? ' day' : ' days') : 'N/A'}</span>
             </div>
             <div class="summary-prose-scrollbox">
               ${proseContent}

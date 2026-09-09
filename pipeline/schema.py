@@ -57,6 +57,13 @@ class MonthData:
     expenses: Expenses = field(default_factory=Expenses)
     days: List[DayEntry] = field(default_factory=list)
 
+    @property
+    def nom_nom_days_str(self) -> str:
+        if self.nom_nom_days is None or self.nom_nom_days <= 0:
+            return ""
+        unit = "day" if self.nom_nom_days == 1 else "days"
+        return f"{self.nom_nom_days} {unit}"
+
 @dataclass
 class MonthAnalytics:
     purely_food_expenses: float = 0.0

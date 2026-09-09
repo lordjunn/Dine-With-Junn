@@ -325,7 +325,7 @@ class SiteBuilder:
             img_html = f'<img src="{img_src}" alt="{latest.title}">' if img_src else '<div class="spotlight-placeholder">🍽️</div>'
             label_nom_nom = ctx.get("site_config", {}).get("labels", {}).get("nom_nom_days", "Nom Nom Days")
             if latest.nom_nom_days and latest.nom_nom_days > 0:
-                meta_html = f'<div class="spotlight-meta">{label_nom_nom}: <strong>{latest.nom_nom_days} days</strong></div>'
+                meta_html = f'<div class="spotlight-meta">{label_nom_nom}: <strong>{latest.nom_nom_days_str}</strong></div>'
             else:
                 meta_html = '<div class="spotlight-meta">Status: <strong style="color: #4ade80;">🌱 Ongoing Month</strong></div>'
 
@@ -436,7 +436,7 @@ class SiteBuilder:
         # Nom nom days badge
         label_nom_nom = ctx.get("site_config", {}).get("labels", {}).get("nom_nom_days", "Nom nom days")
         if month.nom_nom_days and month.nom_nom_days > 0:
-            nom_nom_block = f'<div class="nom-nom-stat"><span class="stat-label">{label_nom_nom}:</span><span class="stat-value">{month.nom_nom_days} days</span></div>'
+            nom_nom_block = f'<div class="nom-nom-stat"><span class="stat-label">{label_nom_nom}:</span><span class="stat-value">{month.nom_nom_days_str}</span></div>'
             html = re.sub(r'{%\s*if\s+month\.nom_nom_days.*?{%\s*endif\s*%}', nom_nom_block, html, flags=re.DOTALL)
         else:
             html = re.sub(r'{%\s*if\s+month\.nom_nom_days.*?{%\s*endif\s*%}', '', html, flags=re.DOTALL)

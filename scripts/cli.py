@@ -223,7 +223,7 @@ def cmd_sync_hdd(args):
 
     print(f"[*] Starting smart incremental sync to: {dest_dir}")
 
-    sync_dirs = ["content", "images", "templates", "static", "pipeline", "scripts", ".github"]
+    sync_dirs = ["content", "data", "images", "templates", "static", "pipeline", "scripts", ".github"]
     sync_files = ["config.json", "requirements.txt", "README.md", ".gitignore", ".env.example"]
 
     copied_files = 0

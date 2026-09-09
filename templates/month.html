@@ -37,7 +37,7 @@
       {% if month.nom_nom_days and month.nom_nom_days > 0 %}
         <div class="nom-nom-stat">
           <span class="stat-label">{{ site_config.labels.nom_nom_days if (site_config.labels and site_config.labels.nom_nom_days) else 'Nom nom days' }}:</span>
-          <span class="stat-value">{{ month.nom_nom_days }} days</span>
+          <span class="stat-value">{{ month.nom_nom_days_str }}</span>
         </div>
       {% endif %}
 
