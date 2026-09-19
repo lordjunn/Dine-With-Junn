@@ -220,9 +220,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     switch (sortKey) {
       case 'date-asc':
-        return copy.sort((a, b) => String(a.date || a.month_slug).localeCompare(String(b.date || b.month_slug)));
+        return copy.sort((a, b) => {
+          const dComp = String(a.date || a.month_slug).localeCompare(String(b.date || b.month_slug));
+          if (dComp !== 0) return dComp;
+          return (a.order_in_day ?? 0) - (b.order_in_day ?? 0);
+        });
       case 'date-desc':
-        return copy.sort((a, b) => String(b.date || b.month_slug).localeCompare(String(a.date || a.month_slug)));
+        return copy.sort((a, b) => {
+          const dComp = String(b.date || b.month_slug).localeCompare(String(a.date || a.month_slug));
+          if (dComp !== 0) return dComp;
+          return (b.order_in_day ?? 0) - (a.order_in_day ?? 0);
+        });
       case 'price-asc':
         return copy.sort((a, b) => (parseFloat(a.price || 0)) - (parseFloat(b.price || 0)));
       case 'price-desc':
@@ -329,7 +337,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const isOngoing = !item.has_ending;
         const ongoingBadge = isOngoing 
           ? `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; margin-left: 0.5rem;">🌱 Ongoing Month</span>` 
-          : '';
+          : (item.era 
+              ? `<span class="badge" style="background: rgba(140, 0, 255, 0.15); color: #c084fc; border: 1px solid rgba(140, 0, 255, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; margin-left: 0.5rem;">${item.era}</span>` 
+              : '');
 
         let priceTagHtml = '';
         if (isMetricSort && activeMetric !== 'total') {

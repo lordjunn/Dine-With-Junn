@@ -597,15 +597,33 @@ class SiteBuilder:
     def _export_search_database(self, months_data: List[tuple[MonthData, MonthAnalytics]]):
         """Generates dist/data/food_database.json for instant search and metrics insights."""
         meals_records = []
+        csv_items = []
         summaries_records = []
+        csv_endings = []
+        csv_starters = []
 
         for month_obj, analytics_obj in months_data:
+            month_name = calendar.month_name[month_obj.month]
+            month_url = f"{month_name} {month_obj.year}"
+            summary_title = month_obj.outro.title if month_obj.outro.title else "No summary entry"
+            summary_price = f"RM {analytics_obj.total_cash_damage:,.2f}"
+            summary_desc = month_obj.outro.prose.replace("\n", "<br>") if month_obj.outro.prose else "No description"
+            summary_img = month_obj.outro.image or month_obj.archive.image or "No image"
+
+            starter_title = f'"{month_obj.archive.teaser}"' if month_obj.archive.teaser else f"Opening Thoughts - {month_url}"
+            starter_desc = month_obj.intro_text.strip() if month_obj.intro_text else "No opening predictions recorded"
+            starter_img = month_obj.archive.image or month_obj.outro.image or "No image"
+            starter_reasons = "; ".join(month_obj.reasons) if month_obj.reasons else ""
+            starter_era = month_obj.archive.era if month_obj.archive.era else ""
+
+            # 1. Monthly Summary Record (for all.html Endings/Starters views & Insights Leaderboard)
             summaries_records.append({
                 "month_slug": month_obj.slug,
                 "title": month_obj.title,
                 "outro_title": month_obj.outro.title if month_obj.outro.title else month_obj.title,
-                "purely_food": analytics_obj.purely_food_expenses,
+                "total_damage": analytics_obj.total_cash_damage,
                 "total_cash_damage": analytics_obj.total_cash_damage,
+                "purely_food": analytics_obj.purely_food_expenses,
                 "breakfast": analytics_obj.breakfast_total,
                 "breakfast_avg": analytics_obj.breakfast_average,
                 "lunch": analytics_obj.lunch_total,
@@ -615,8 +633,8 @@ class SiteBuilder:
                 "avgPerDay": analytics_obj.average_cost_per_day,
                 "etcExpenses": analytics_obj.etc_expenses_total,
                 "nom_nom_days": month_obj.nom_nom_days,
-                "prose": month_obj.outro.prose,
                 "image": month_obj.outro.image or month_obj.archive.image,
+                "prose": month_obj.outro.prose,
                 "intro_text": month_obj.intro_text,
                 "era": month_obj.archive.era,
                 "teaser": month_obj.archive.teaser,
@@ -627,8 +645,34 @@ class SiteBuilder:
                 "date": f"{month_obj.year}-{month_obj.month:02d}-28"
             })
 
+            csv_endings.append({
+                "month_url": month_url,
+                "title": summary_title,
+                "price": summary_price,
+                "description": summary_desc,
+                "image": summary_img
+            })
+
+            csv_starters.append({
+                "month_url": month_url,
+                "title": starter_title,
+                "era": starter_era,
+                "teaser": month_obj.archive.teaser or "",
+                "reasons": starter_reasons,
+                "description": starter_desc,
+                "image": starter_img
+            })
+
+            # 2. Unified Meals Records
             for day in month_obj.days:
-                for meal in day.meals:
+                date_label = f"{day.date_str} ({day.day_of_week})"
+                for idx, meal in enumerate(day.meals):
+                    canonical_desc = meal.description.strip() if meal.description else "No description"
+                    canonical_price_str = meal.price_str if meal.price_str else f"RM {meal.price:.2f}"
+                    canonical_restaurant = meal.restaurant if meal.restaurant else "No restaurant name"
+                    canonical_meal_type = f"({meal.meal_type})" if not meal.meal_type.startswith("(") else meal.meal_type
+
+                    # JSON Record (for all.html live search)
                     meals_records.append({
                         "dish_name": meal.dish_name,
                         "restaurant": meal.restaurant,
@@ -639,8 +683,20 @@ class SiteBuilder:
                         "date": day.date_str,
                         "day_of_week": day.day_of_week,
                         "month_slug": month_obj.slug,
-                        "description": meal.description,
-                        "items": meal.items
+                        "description": canonical_desc,
+                        "items": meal.items,
+                        "order_in_day": idx
+                    })
+
+                    # CSV Record (for menu_items2.csv export & BiteAnalytics imports)
+                    csv_items.append({
+                        "date": date_label,
+                        "dish_name": meal.dish_name,
+                        "restaurant_name": canonical_restaurant,
+                        "price": canonical_price_str,
+                        "meal_type": canonical_meal_type,
+                        "description": canonical_desc,
+                        "image": meal.image if meal.image else "No image"
                     })
 
         data_dir = self.dist_dir / "data"
@@ -653,47 +709,6 @@ class SiteBuilder:
                 "summaries": summaries_records,
                 "labels": self.site_config.get("labels", {"nom_nom_days": "Nom nom days"})
             }, f, indent=2)
-
-        # Generate Legacy-Compatible CSV files
-        csv_items = []
-        for month_obj, _ in months_data:
-            for day in month_obj.days:
-                for meal in day.meals:
-                    date_str = f"{day.date_str} ({day.day_of_week})"
-                    desc_parts = []
-                    if meal.description:
-                        desc_parts.append(meal.description)
-                    if meal.items:
-                        items_html = "".join([f"<li>{it}</li>" for it in meal.items])
-                        desc_parts.append(f"<ul>{items_html}</ul>")
-                    full_desc = "<br>".join(desc_parts) if desc_parts else "No description"
-
-                    csv_items.append({
-                        "date": date_str,
-                        "dish_name": meal.dish_name,
-                        "restaurant_name": meal.restaurant if meal.restaurant else "No restaurant name",
-                        "price": meal.price_str if meal.price_str else f"RM {meal.price:.2f}",
-                        "meal_type": f"({meal.meal_type})" if not meal.meal_type.startswith("(") else meal.meal_type,
-                        "description": full_desc,
-                        "image": meal.image if meal.image else "No image"
-                    })
-
-        csv_endings = []
-        for month_obj, analytics_obj in months_data:
-            month_name = calendar.month_name[month_obj.month]
-            month_url = f"{month_name} {month_obj.year}"
-            title = month_obj.outro.title if month_obj.outro.title else "No summary entry"
-            price = f"RM {analytics_obj.total_cash_damage:,.2f}"
-            desc = month_obj.outro.prose.replace("\n", "<br>") if month_obj.outro.prose else "No description"
-            img = month_obj.outro.image or month_obj.archive.image or "No image"
-
-            csv_endings.append({
-                "month_url": month_url,
-                "title": title,
-                "price": price,
-                "description": desc,
-                "image": img
-            })
 
         # Save to dist/data/ and project data/
         for target_dir in [data_dir, BASE_DIR / "data"]:
@@ -708,8 +723,13 @@ class SiteBuilder:
                 writer.writeheader()
                 writer.writerows(csv_endings)
 
+            with open(target_dir / "menu_starters.csv", "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'era', 'teaser', 'reasons', 'description', 'image'])
+                writer.writeheader()
+                writer.writerows(csv_starters)
+
         print(f"[*] Exported {len(meals_records)} meals and {len(summaries_records)} summaries to {db_path.name}")
-        print(f"[+] Generated legacy CSVs: menu_items2.csv ({len(csv_items)} rows), menu_endings.csv ({len(csv_endings)} rows)")
+        print(f"[+] Generated CSVs: menu_items2.csv ({len(csv_items)} rows), menu_endings.csv ({len(csv_endings)} rows), menu_starters.csv ({len(csv_starters)} rows)")
 
     def _generate_legacy_alias(self, month_obj: MonthData):
         """Generates compatibility alias files for legacy links like dist/Logs/Jul 26.html."""

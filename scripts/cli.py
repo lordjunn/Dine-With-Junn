@@ -207,6 +207,8 @@ def cmd_sync_hdd(args):
     dest_input = args.dest
     if not dest_input:
         dest_input = os.getenv("HDD_PATH")
+    if not dest_input and Path(r"K:\Github\Dine With Junn").exists():
+        dest_input = r"K:\Github\Dine With Junn"
 
     if not dest_input:
         print("[Error] Please provide the target HDD destination path!\nUsage: python scripts/cli.py sync-hdd \"E:\\Dine-With-Junn\"")
@@ -220,6 +222,34 @@ def cmd_sync_hdd(args):
         except Exception as e:
             print(f"[Error] Could not access or create target directory {dest_dir}: {e}")
             return
+
+    # 1. If target is a Git repo, pull remote changes first (e.g. from GitHub Actions)
+    if (dest_dir / ".git").exists():
+        print(f"[*] Checking for remote Git updates at: {dest_dir}")
+        try:
+            import subprocess
+            res = subprocess.run(["git", "pull"], cwd=str(dest_dir), capture_output=True, text=True, check=False)
+            if res.returncode == 0:
+                stdout_msg = res.stdout.strip()
+                if "Already up to date" in stdout_msg:
+                    print("    -> Repo is up to date with remote.")
+                else:
+                    print(f"    -> Pulled latest remote changes:\n{stdout_msg}")
+                    # If remote had updates (e.g. CI auto-generated CSVs or remote edits), sync them back to OneDrive
+                    for d in ["data", "content"]:
+                        pulled_dir = dest_dir / d
+                        if pulled_dir.exists():
+                            for p_file in pulled_dir.rglob("*"):
+                                if p_file.is_file():
+                                    local_f = BASE_DIR / p_file.relative_to(dest_dir)
+                                    if not local_f.exists() or p_file.stat().st_mtime > local_f.stat().st_mtime:
+                                        _smart_sync_file(p_file, local_f)
+                                        print(f"    -> Synced remote update to OneDrive: {local_f.name}")
+            else:
+                err_msg = res.stderr.strip() or res.stdout.strip()
+                print(f"    -> [Notice] git pull output: {err_msg}")
+        except Exception as e:
+            print(f"    -> [Notice] Could not run git pull: {e}")
 
     print(f"[*] Starting smart incremental sync to: {dest_dir}")
 
@@ -293,8 +323,11 @@ def main():
     sync_parser.add_argument("--limit", type=int, default=None, help="Number of Discord photos to fetch (defaults to number of meals)")
     sync_parser.add_argument("--mock", action="store_true", help="Run in mock/offline mode with sample photos")
 
+    # Help command
+    subparsers.add_parser("help", help="Show this help message")
+
     args = parser.parse_args()
-    if not args.command:
+    if not args.command or args.command == "help":
         parser.print_help()
         sys.exit(0)
 
