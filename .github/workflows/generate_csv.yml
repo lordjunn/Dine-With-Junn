@@ -47,16 +47,16 @@ jobs:
         run: |
           python scripts/cli.py build
 
-      - name: Commit and push generated CSVs and dist
+      - name: Commit and push generated CSVs
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add data/ dist/
+          git add data/
 
           if git diff --staged --quiet; then
-            echo "No changes in data/ or dist/ to commit."
+            echo "No changes in data/ to commit."
           else
-            git commit -m "Auto-generate CSVs and site build [skip ci]"
+            git commit -m "Auto-generate CSVs [skip ci]"
             git push origin main
           fi
