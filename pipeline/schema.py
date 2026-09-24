@@ -82,6 +82,8 @@ class MonthAnalytics:
     
     # Chart.js visualization datasets
     chart_labels: List[str] = field(default_factory=list)
+    chart_full_labels: List[str] = field(default_factory=list)
+    chart_date_ids: List[str] = field(default_factory=list)
     chart_daily_costs: List[float] = field(default_factory=list)
     chart_breakfast_costs: List[float] = field(default_factory=list)
     chart_lunch_costs: List[float] = field(default_factory=list)

@@ -16,6 +16,8 @@ class SpendingAnalyticsEngine:
         dinner_count = 0
 
         chart_labels: List[str] = []
+        chart_full_labels: List[str] = []
+        chart_date_ids: List[str] = []
         chart_daily_costs: List[float] = []
         chart_breakfast_costs: List[float] = []
         chart_lunch_costs: List[float] = []
@@ -24,7 +26,10 @@ class SpendingAnalyticsEngine:
         for day in month_data.days:
             # Format date label e.g., '01 (Wed)'
             label = self._format_day_label(day.date_str, day.day_of_week)
+            full_label = self._format_full_day_label(day.date_str, day.day_of_week)
             chart_labels.append(label)
+            chart_full_labels.append(full_label)
+            chart_date_ids.append(day.date_str)
 
             day_food_cost = 0.0
             day_breakfast = 0.0
@@ -96,6 +101,8 @@ class SpendingAnalyticsEngine:
             etc_expenses_total=round(etc_total, 2),
             total_cash_damage=round(cash_damage, 2),
             chart_labels=chart_labels,
+            chart_full_labels=chart_full_labels,
+            chart_date_ids=chart_date_ids,
             chart_daily_costs=chart_daily_costs,
             chart_breakfast_costs=chart_breakfast_costs,
             chart_lunch_costs=chart_lunch_costs,
@@ -113,3 +120,19 @@ class SpendingAnalyticsEngine:
             short_dow = day_of_week[:3] if len(day_of_week) >= 3 else day_of_week
             day_part = date_str.split("-")[-1]
             return f"{day_part} ({short_dow})"
+
+    def _format_full_day_label(self, date_str: str, day_of_week: str) -> str:
+        """Formats '2026-06-08' and 'Monday' to '08-06-2026 (Mon)'."""
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            formatted_date = dt.strftime("%d-%m-%Y")
+            short_dow = dt.strftime("%a")
+            return f"{formatted_date} ({short_dow})"
+        except ValueError:
+            parts = date_str.split("-")
+            if len(parts) == 3:
+                formatted_date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+            else:
+                formatted_date = date_str
+            short_dow = day_of_week[:3] if len(day_of_week) >= 3 else day_of_week
+            return f"{formatted_date} ({short_dow})"

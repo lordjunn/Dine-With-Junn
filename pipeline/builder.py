@@ -587,6 +587,8 @@ class SiteBuilder:
 
         # 3. Replace Chart JSON dataset template tags directly
         html = html.replace("{{ analytics.chart_labels | tojson }}", json.dumps(analytics.chart_labels))
+        html = html.replace("{{ analytics.chart_full_labels | tojson }}", json.dumps(analytics.chart_full_labels))
+        html = html.replace("{{ analytics.chart_date_ids | tojson }}", json.dumps(analytics.chart_date_ids))
         html = html.replace("{{ analytics.chart_daily_costs | tojson }}", json.dumps(analytics.chart_daily_costs))
         html = html.replace("{{ analytics.chart_breakfast_costs | tojson }}", json.dumps(analytics.chart_breakfast_costs))
         html = html.replace("{{ analytics.chart_lunch_costs | tojson }}", json.dumps(analytics.chart_lunch_costs))

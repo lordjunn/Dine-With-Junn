@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
   initCollapsibleDescriptions();
   initMealChart();
+  initMonthKeyboardNav();
 });
 
 // --- Collapsible Long Descriptions ---
@@ -129,6 +130,30 @@ function initMealChart() {
           }
         }
       },
+      onHover: (event, chartElement) => {
+        const target = event.native ? event.native.target : (event.chart ? event.chart.canvas : null);
+        if (target) {
+          target.style.cursor = chartElement && chartElement.length ? 'pointer' : 'default';
+        }
+      },
+      onClick: (event, elements) => {
+        if (elements.length > 0 && data.dateIds) {
+          const index = elements[0].index;
+          const targetId = data.dateIds[index];
+          if (targetId) {
+            const el = document.getElementById(targetId);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              try {
+                history.replaceState(null, '', '#' + targetId);
+              } catch (err) {}
+              el.classList.remove('highlight-glow');
+              void el.offsetWidth;
+              el.classList.add('highlight-glow');
+            }
+          }
+        }
+      },
       plugins: {
         legend: {
           labels: {
@@ -139,6 +164,11 @@ function initMealChart() {
         },
         tooltip: {
           callbacks: {
+            title: context => {
+              if (!context || !context.length) return '';
+              const index = context[0].dataIndex;
+              return (data.fullLabels && data.fullLabels[index]) ? data.fullLabels[index] : context[0].label;
+            },
             label: context => ` ${context.dataset.label}: RM ${Number(context.raw || 0).toFixed(2)}`
           }
         }
@@ -167,4 +197,25 @@ function initMealChart() {
       }, 50);
     });
   }
+}
+
+// --- Keyboard Navigation: Left/Right Arrows between Months ---
+function initMonthKeyboardNav() {
+  window.addEventListener('keydown', (e) => {
+    // Ignore if typing inside an input, textarea, or contentEditable element
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) {
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      const prevBtn = document.querySelector('.month-nav-header .month-nav-prev a.nav-month-btn');
+      if (prevBtn && prevBtn.href) {
+        window.location.href = prevBtn.href;
+      }
+    } else if (e.key === 'ArrowRight') {
+      const nextBtn = document.querySelector('.month-nav-header .month-nav-next a.nav-month-btn');
+      if (nextBtn && nextBtn.href) {
+        window.location.href = nextBtn.href;
+      }
+    }
+  });
 }

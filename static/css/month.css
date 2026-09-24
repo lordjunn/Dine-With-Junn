@@ -176,7 +176,8 @@
   transition: all 0.3s ease;
 }
 
-.day-group:target {
+.day-group:target,
+.day-group.highlight-glow {
   scroll-margin-top: 5rem;
   animation: day-target-glow 2.5s ease-out;
 }

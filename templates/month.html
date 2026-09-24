@@ -231,6 +231,8 @@
 <script>
   window.mealChartData = {
     labels: {{ analytics.chart_labels | tojson }},
+    fullLabels: {{ analytics.chart_full_labels | tojson }},
+    dateIds: {{ analytics.chart_date_ids | tojson }},
     dailyCosts: {{ analytics.chart_daily_costs | tojson }},
     breakfastCosts: {{ analytics.chart_breakfast_costs | tojson }},
     lunchCosts: {{ analytics.chart_lunch_costs | tojson }},
