@@ -26,10 +26,11 @@ def format_inline_markdown(text: str) -> str:
     return html.strip()
 
 def format_prose_markdown(text: str) -> str:
-    """Converts text to HTML:
-    - Single newline (\n) -> <br> (tight line break)
-    - Double newline (\n\n) -> <p> paragraph break
-    - Interleaved bullets (- Item) -> <ul class="itemized-bullets"><li>...</li></ul>
+    """Converts prose, meal descriptions, and intro text to HTML:
+    - 1 <p> tag per block (only splits when interrupted by <ul> bullets).
+    - Single newline in markdown (\n) -> <br>\n (tight break, no gap line).
+    - Double newline in markdown (\n\n) -> <br><br>\n\n (+1 empty gap line).
+    - Interleaved bullets (- Item) -> tight <ul class="itemized-bullets"> with no blank lines inside.
     """
     if not text:
         return ""
@@ -40,40 +41,61 @@ def format_prose_markdown(text: str) -> str:
 
     lines = html.splitlines()
     out = []
-    in_ul = False
-    curr_paragraph = []
+    curr_p_lines = []
+    curr_ul_lis = []
 
     def flush_p():
-        nonlocal curr_paragraph
-        if curr_paragraph:
-            out.append("<p>" + "<br>".join(curr_paragraph) + "</p>")
-            curr_paragraph = []
+        nonlocal curr_p_lines
+        if curr_p_lines:
+            content = "\n".join(curr_p_lines).strip()
+            while content.endswith("<br><br>") or content.endswith("<br>"):
+                if content.endswith("<br><br>"):
+                    content = content[:-8].strip()
+                elif content.endswith("<br>"):
+                    content = content[:-4].strip()
+            if content:
+                out.append(f"<p>\n{content}\n</p>")
+            curr_p_lines = []
 
-    for line in lines:
+    def flush_ul():
+        nonlocal curr_ul_lis
+        if curr_ul_lis:
+            lis = "\n".join(curr_ul_lis)
+            out.append(f'<ul class="itemized-bullets">\n{lis}\n</ul>')
+            curr_ul_lis = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         stripped = line.strip()
+
         if stripped.startswith("- ") or stripped.startswith("* "):
             flush_p()
-            if not in_ul:
-                out.append('<ul class="itemized-bullets">')
-                in_ul = True
             bullet_content = stripped[2:].strip()
-            out.append(f"<li>{bullet_content}</li>")
+            curr_ul_lis.append(f"  <li>{bullet_content}</li>")
+            i += 1
         elif not stripped:
-            flush_p()
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
+            flush_ul()
+            if curr_p_lines and not curr_p_lines[-1].endswith("<br><br>\n"):
+                if curr_p_lines[-1].endswith("<br>"):
+                    curr_p_lines[-1] = curr_p_lines[-1][:-4] + "<br><br>\n"
+                elif not curr_p_lines[-1].endswith("<br><br>"):
+                    curr_p_lines[-1] += "<br><br>\n"
+            i += 1
         else:
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            curr_paragraph.append(stripped)
+            flush_ul()
+            if curr_p_lines and not curr_p_lines[-1].endswith("<br><br>\n") and not curr_p_lines[-1].endswith("<br>"):
+                curr_p_lines[-1] += "<br>"
+            curr_p_lines.append(stripped)
+            i += 1
 
     flush_p()
-    if in_ul:
-        out.append("</ul>")
+    flush_ul()
 
-    return "".join(out)
+    return "\n\n".join(out)
+
+# Alias for backwards compatibility with template filters
+format_intro_markdown = format_prose_markdown
 
 class SiteBuilder:
     """Static site generator compiling Markdown content and Jinja2 templates into /dist."""
@@ -224,6 +246,7 @@ class SiteBuilder:
                 autoescape=select_autoescape(["html", "xml"])
             )
             env.filters["md_format"] = format_prose_markdown
+            env.filters["md_intro"] = format_intro_markdown
             env.filters["md_inline"] = format_inline_markdown
             return env
         except ImportError:
@@ -441,9 +464,10 @@ class SiteBuilder:
         else:
             html = re.sub(r'{%\s*if\s+month\.nom_nom_days.*?{%\s*endif\s*%}', '', html, flags=re.DOTALL)
 
-        # Intro text with md_format
+        # Intro text with md_intro / md_format
         if month.intro_text:
-            intro_formatted = format_prose_markdown(month.intro_text)
+            intro_formatted = format_intro_markdown(month.intro_text)
+            html = html.replace("{{ month.intro_text | md_intro | safe }}", intro_formatted)
             html = html.replace("{{ month.intro_text | md_format | safe }}", intro_formatted)
             html = html.replace("{{ month.intro_text | replace('\\n', '<br>') | safe }}", intro_formatted)
             html = re.sub(r'{%\s*if\s+month\.intro_text\s*%}(.*?){%\s*endif\s*%}', r'\1', html, flags=re.DOTALL)
@@ -531,6 +555,10 @@ class SiteBuilder:
         util_html = f"<li><strong>Utilities:</strong> RM {month.expenses.utilities:.2f}</li>" if month.expenses.utilities > 0 else ""
         petrol_html = f"<li><strong>Petrol:</strong> RM {month.expenses.petrol:.2f}</li>" if month.expenses.petrol > 0 else ""
 
+        b_avg_html = f' <span class="avg-note">(~RM {analytics.breakfast_average:.2f} per meal)</span>' if analytics.breakfast_count > 1 else ''
+        l_avg_html = f' <span class="avg-note">(~RM {analytics.lunch_average:.2f} per meal)</span>' if analytics.lunch_count > 1 else ''
+        d_avg_html = f' <span class="avg-note">(~RM {analytics.dinner_average:.2f} per meal)</span>' if analytics.dinner_count > 1 else ''
+
         outro_block = f"""
   <section class="outro-section">
     <div class="outro-top-row">
@@ -555,16 +583,13 @@ class SiteBuilder:
           <strong>Purely food expenses:</strong> RM {analytics.purely_food_expenses:.2f}
         </li>
         <li>
-          <strong>Breakfast:</strong> RM {analytics.breakfast_total:.2f}
-          <span class="avg-note">(~RM {analytics.breakfast_average:.2f} per meal)</span>
+          <strong>Breakfast:</strong> RM {analytics.breakfast_total:.2f}{b_avg_html}
         </li>
         <li>
-          <strong>Lunch:</strong> RM {analytics.lunch_total:.2f}
-          <span class="avg-note">(~RM {analytics.lunch_average:.2f} per meal)</span>
+          <strong>Lunch:</strong> RM {analytics.lunch_total:.2f}{l_avg_html}
         </li>
         <li>
-          <strong>Dinner:</strong> RM {analytics.dinner_total:.2f}
-          <span class="avg-note">(~RM {analytics.dinner_average:.2f} per meal)</span>
+          <strong>Dinner:</strong> RM {analytics.dinner_total:.2f}{d_avg_html}
         </li>
         <li class="stat-avg-day">
           <strong>Average cost per day:</strong> RM {analytics.average_cost_per_day:.2f}

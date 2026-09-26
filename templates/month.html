@@ -57,7 +57,7 @@
       <div class="intro-prose-box">
         <h3>Opening Thoughts & Predictions</h3>
         <div class="intro-text">
-          {{ month.intro_text | md_format | safe }}
+          {{ month.intro_text | md_intro | safe }}
         </div>
       </div>
     {% endif %}
@@ -142,19 +142,19 @@
         </li>
         <li>
           <strong>Breakfast:</strong> RM {{ "%.2f" | format(analytics.breakfast_total) }}
-          {% if analytics.breakfast_count > 0 %}
+          {% if analytics.breakfast_count > 1 %}
             <span class="avg-note">(~RM {{ "%.2f" | format(analytics.breakfast_average) }} per meal)</span>
           {% endif %}
         </li>
         <li>
           <strong>Lunch:</strong> RM {{ "%.2f" | format(analytics.lunch_total) }}
-          {% if analytics.lunch_count > 0 %}
+          {% if analytics.lunch_count > 1 %}
             <span class="avg-note">(~RM {{ "%.2f" | format(analytics.lunch_average) }} per meal)</span>
           {% endif %}
         </li>
         <li>
           <strong>Dinner:</strong> RM {{ "%.2f" | format(analytics.dinner_total) }}
-          {% if analytics.dinner_count > 0 %}
+          {% if analytics.dinner_count > 1 %}
             <span class="avg-note">(~RM {{ "%.2f" | format(analytics.dinner_average) }} per meal)</span>
           {% endif %}
         </li>
