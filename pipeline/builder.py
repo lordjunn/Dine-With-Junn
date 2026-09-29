@@ -551,8 +551,21 @@ class SiteBuilder:
               </ul>
             </li>"""
 
-        rent_html = f"<li><strong>Rental:</strong> RM {month.expenses.rental:.2f}</li>" if month.expenses.rental > 0 else ""
-        util_html = f"<li><strong>Utilities:</strong> RM {month.expenses.utilities:.2f}</li>" if month.expenses.utilities > 0 else ""
+        # Adulting fees / Rental block (supports itemized list or single float)
+        rent_html = ""
+        if month.expenses.adulting_items:
+            adult_lis = "".join([f"<li>{'(' + str(it.day) + ') ' if it.day else ''}{it.label} - RM {it.amount:.2f}</li>" for it in month.expenses.adulting_items])
+            rent_html = f"""
+            <li class="stat-adulting">
+              <strong>{month.expenses.rental_label}:</strong> RM {month.expenses.rental:.2f}
+              <ul class="etc-nested-list">
+                {adult_lis}
+              </ul>
+            </li>"""
+        elif month.expenses.rental > 0:
+            rent_html = f"<li><strong>{month.expenses.rental_label}:</strong> RM {month.expenses.rental:.2f}</li>"
+
+        util_html = f"<li><strong>{month.expenses.utilities_label}:</strong> RM {month.expenses.utilities:.2f}</li>" if month.expenses.utilities > 0 else ""
         petrol_html = f"<li><strong>Petrol:</strong> RM {month.expenses.petrol:.2f}</li>" if month.expenses.petrol > 0 else ""
 
         b_avg_html = f' <span class="avg-note">(~RM {analytics.breakfast_average:.2f} per meal)</span>' if analytics.breakfast_count > 1 else ''

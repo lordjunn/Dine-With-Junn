@@ -10,7 +10,10 @@ class EtcExpenseItem:
 @dataclass
 class Expenses:
     rental: float = 0.0
+    rental_label: str = "Rental"
+    adulting_items: List[EtcExpenseItem] = field(default_factory=list)
     utilities: float = 0.0
+    utilities_label: str = "Utilities"
     petrol: float = 0.0
     etc: List[EtcExpenseItem] = field(default_factory=list)
 

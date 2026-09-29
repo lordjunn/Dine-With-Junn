@@ -176,11 +176,23 @@
           </li>
         {% endif %}
 
-        {% if month.expenses.rental > 0 %}
-          <li><strong>Rental:</strong> RM {{ "%.2f" | format(month.expenses.rental) }}</li>
+        {% if month.expenses.adulting_items %}
+          <li class="stat-adulting">
+            <strong>{{ month.expenses.rental_label }}:</strong> RM {{ "%.2f" | format(month.expenses.rental) }}
+            <ul class="etc-nested-list">
+              {% for item in month.expenses.adulting_items %}
+                <li>
+                  {% if item.day %}({{ item.day }}) {% endif %}
+                  {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                </li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% elif month.expenses.rental > 0 %}
+          <li><strong>{{ month.expenses.rental_label }}:</strong> RM {{ "%.2f" | format(month.expenses.rental) }}</li>
         {% endif %}
         {% if month.expenses.utilities > 0 %}
-          <li><strong>Utilities:</strong> RM {{ "%.2f" | format(month.expenses.utilities) }}</li>
+          <li><strong>{{ month.expenses.utilities_label }}:</strong> RM {{ "%.2f" | format(month.expenses.utilities) }}</li>
         {% endif %}
         {% if month.expenses.petrol > 0 %}
           <li><strong>Petrol:</strong> RM {{ "%.2f" | format(month.expenses.petrol) }}</li>

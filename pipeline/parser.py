@@ -56,19 +56,68 @@ class MarkdownContentParser:
 
         # Expenses
         expenses_raw = frontmatter_dict.get("expenses", {})
+
+        # 1. Adulting fees / Rental (can be float or list of fixed costs)
+        adulting_raw = None
+        rental_label = "Rental"
+        for key in ("Adulting fees", "adulting_fees", "Adulting Fees", "Adulting", "rental"):
+            if key in expenses_raw:
+                adulting_raw = expenses_raw[key]
+                rental_label = "Adulting fees" if "adult" in key.lower() else "Rental"
+                break
+
+        adulting_items = []
+        if isinstance(adulting_raw, list):
+            for item in adulting_raw:
+                if isinstance(item, dict):
+                    l_val = str(item.get("label", "")).strip()
+                    a_val = self._clean_float(item.get("amount", 0.0))
+                    d_val = self._clean_int(item.get("day"))
+                    # Filter placeholder items
+                    if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
+                        continue
+                    adulting_items.append(EtcExpenseItem(label=l_val, amount=a_val, day=d_val))
+            rental_amount = sum(it.amount for it in adulting_items)
+            rental_label = "Adulting fees"
+        else:
+            rental_amount = self._clean_float(adulting_raw) if adulting_raw is not None else 0.0
+
+        # 2. Utilities / Household contribution
+        util_raw = None
+        util_label = "Utilities"
+        for key in ("Household contribution", "household_contribution", "Household Contribution", "utilities"):
+            if key in expenses_raw:
+                util_raw = expenses_raw[key]
+                util_label = "Household contribution" if "household" in key.lower() else "Utilities"
+                break
+        util_amount = self._clean_float(util_raw) if util_raw is not None else 0.0
+
+        # 3. Petrol
+        petrol_amount = self._clean_float(expenses_raw.get("petrol", 0.0))
+
+        # 4. Etc items
         etc_items = []
         for item in expenses_raw.get("etc", []):
             if isinstance(item, dict):
+                l_val = str(item.get("label", "")).strip()
+                a_val = self._clean_float(item.get("amount", 0.0))
+                d_val = self._clean_int(item.get("day"))
+                # Filter placeholder items like - label: "(word here)"
+                if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
+                    continue
                 etc_items.append(EtcExpenseItem(
-                    label=str(item.get("label", "")),
-                    amount=self._clean_float(item.get("amount", 0.0)),
-                    day=self._clean_int(item.get("day"))
+                    label=l_val,
+                    amount=a_val,
+                    day=d_val
                 ))
 
         expenses = Expenses(
-            rental=self._clean_float(expenses_raw.get("rental", expenses_raw.get("Adulting fees", 0.0))),
-            utilities=self._clean_float(expenses_raw.get("utilities", 0.0)),
-            petrol=self._clean_float(expenses_raw.get("petrol", 0.0)),
+            rental=rental_amount,
+            rental_label=rental_label,
+            adulting_items=adulting_items,
+            utilities=util_amount,
+            utilities_label=util_label,
+            petrol=petrol_amount,
             etc=etc_items
         )
 
@@ -217,25 +266,35 @@ class MarkdownContentParser:
             if current_section == "expenses":
                 if stripped.startswith("etc:"):
                     current_list = "etc"
+                    result["expenses"]["etc"] = []
                     i += 1
                     continue
-                elif current_list == "etc":
+                elif any(stripped.lower().startswith(p) for p in ("adulting fees:", "adulting_fees:")) and stripped.endswith(":"):
+                    current_list = "Adulting fees"
+                    result["expenses"]["Adulting fees"] = []
+                    i += 1
+                    continue
+                elif current_list in ("etc", "Adulting fees"):
                     if stripped.startswith("- "):
-                        # New etc list item
+                        # New list item
                         current_item = {}
-                        result["expenses"]["etc"].append(current_item)
+                        result["expenses"][current_list].append(current_item)
                         sub_content = stripped[2:].strip()
                         if ":" in sub_content:
                             sk, sv = sub_content.split(":", 1)
                             sk, sv = sk.strip(), self._unquote(sv)
                             current_item[sk] = float(sv) if (sv.replace(".", "", 1).isdigit() and "." in sv) else (int(sv) if sv.isdigit() else sv)
-                    elif current_item is not None and ":" in stripped:
+                        i += 1
+                        continue
+                    elif current_item is not None and ":" in stripped and not stripped.startswith("-"):
                         sk, sv = stripped.split(":", 1)
                         sk, sv = sk.strip(), self._unquote(sv)
                         current_item[sk] = float(sv) if (sv.replace(".", "", 1).isdigit() and "." in sv) else (int(sv) if sv.isdigit() else sv)
-                    i += 1
-                    continue
-                elif ":" in stripped:
+                        i += 1
+                        continue
+                    else:
+                        current_list = None
+                if ":" in stripped:
                     sk, sv = stripped.split(":", 1)
                     sk, sv = sk.strip(), self._unquote(sv)
                     try:

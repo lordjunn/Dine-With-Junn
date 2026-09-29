@@ -69,6 +69,37 @@ def cmd_sync_images(args):
     syncer = DiscordImageSyncer()
     syncer.launch_review_server(args.slug, limit=args.limit, mock=args.mock)
 
+def _get_previous_month_era(year: int, month: int) -> tuple[str, str]:
+    """Finds previous month's markdown file and extracts its era. Returns (era, source_description)."""
+    import re
+    from pipeline.config import CONTENT_DIR
+
+    # 1. Exact previous calendar month (e.g. 2026-09 for 2026-10)
+    prev_y, prev_m = (year - 1, 12) if month == 1 else (year, month - 1)
+    prev_slug = f"{prev_y:04d}-{prev_m:02d}"
+    candidate_file = CONTENT_DIR / f"{prev_slug}.md"
+
+    # 2. If exact previous file doesn't exist, pick the latest file prior to this month
+    target_slug = f"{year:04d}-{month:02d}"
+    if not candidate_file.exists():
+        earlier_files = sorted(f for f in CONTENT_DIR.glob("*.md") if f.stem < target_slug)
+        if earlier_files:
+            candidate_file = earlier_files[-1]
+        else:
+            all_files = sorted(CONTENT_DIR.glob("*.md"))
+            candidate_file = all_files[-1] if all_files else None
+
+    if candidate_file and candidate_file.exists():
+        try:
+            content = candidate_file.read_text(encoding="utf-8")
+            m = re.search(r'^\s*era:\s*["\']?(.*?)["\']?\s*$', content, re.MULTILINE)
+            if m and m.group(1).strip():
+                return m.group(1).strip(), candidate_file.name
+        except Exception:
+            pass
+
+    return "Unknown grounds", "default"
+
 def cmd_new_month(args):
     """Generates a complete new month Markdown template with exact calendar dates."""
     import calendar
@@ -109,7 +140,15 @@ def cmd_new_month(args):
         print(f"[!] {out_md_path.name} already exists! Use --force if you want to overwrite.")
         return
 
-    era = args.era if args.era else "Unknown grounds"
+    if args.era:
+        era = args.era
+        print(f"[*] Era set to: '{era}' (via --era)")
+    else:
+        era, source = _get_previous_month_era(year, month)
+        if source != "default":
+            print(f"[*] Era set to: '{era}' (inherited from {source})")
+        else:
+            print(f"[*] Era set to default: '{era}'")
 
     # 2. Generate Calendar Days Skeleton
     num_days = calendar.monthrange(year, month)[1]
@@ -165,10 +204,13 @@ outro:
   image: ""
   prose: ""
 expenses:
-  rental: 0.00
+  Adulting fees: 0.00
   utilities: 0.00
   petrol: 0.00
-  etc: []
+  etc: 
+    - label: "(word here)"
+      day: 
+      amount: 
 ---
 
 {"".join(days_blocks).strip()}
@@ -302,7 +344,7 @@ def main():
     # New-month command
     new_month_parser = subparsers.add_parser("new-month", help="Auto-generate next month's Markdown template with calendar days")
     new_month_parser.add_argument("month_str", nargs="?", type=str, help="Optional target month e.g. '2026-09'. Defaults to next month.")
-    new_month_parser.add_argument("--era", type=str, default=None, help="Era chapter title (default: 'Unknown grounds')")
+    new_month_parser.add_argument("--era", type=str, default=None, help="Era chapter title (defaults to inheriting previous month's era)")
     new_month_parser.add_argument("--force", action="store_true", help="Overwrite if file already exists")
     new_month_parser.add_argument("--dry-run", action="store_true", help="Print preview without writing file")
 
