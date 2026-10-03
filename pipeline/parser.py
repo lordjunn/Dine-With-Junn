@@ -111,6 +111,22 @@ class MarkdownContentParser:
                     day=d_val
                 ))
 
+        # 5. Work claims items (reimbursed by company)
+        work_claims_items = []
+        for item in expenses_raw.get("work_claims", []):
+            if isinstance(item, dict):
+                l_val = str(item.get("label", "")).strip()
+                a_val = self._clean_float(item.get("amount", 0.0))
+                d_val = self._clean_int(item.get("day"))
+                # Filter placeholder items
+                if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
+                    continue
+                work_claims_items.append(EtcExpenseItem(
+                    label=l_val,
+                    amount=a_val,
+                    day=d_val
+                ))
+
         expenses = Expenses(
             rental=rental_amount,
             rental_label=rental_label,
@@ -118,7 +134,8 @@ class MarkdownContentParser:
             utilities=util_amount,
             utilities_label=util_label,
             petrol=petrol_amount,
-            etc=etc_items
+            etc=etc_items,
+            work_claims=work_claims_items
         )
 
         # Parse Daily Entries
@@ -269,12 +286,17 @@ class MarkdownContentParser:
                     result["expenses"]["etc"] = []
                     i += 1
                     continue
+                elif stripped.startswith("work_claims:"):
+                    current_list = "work_claims"
+                    result["expenses"]["work_claims"] = []
+                    i += 1
+                    continue
                 elif any(stripped.lower().startswith(p) for p in ("adulting fees:", "adulting_fees:")) and stripped.endswith(":"):
                     current_list = "Adulting fees"
                     result["expenses"]["Adulting fees"] = []
                     i += 1
                     continue
-                elif current_list in ("etc", "Adulting fees"):
+                elif current_list in ("etc", "Adulting fees", "work_claims"):
                     if stripped.startswith("- "):
                         # New list item
                         current_item = {}

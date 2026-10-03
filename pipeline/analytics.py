@@ -77,6 +77,9 @@ class SpendingAnalyticsEngine:
         # Etc Expenses Total
         etc_total = sum(item.amount for item in month_data.expenses.etc)
 
+        # Work Claims Total (Reimbursed by company, NOT added to personal cash damage)
+        work_claims_total = sum(item.amount for item in month_data.expenses.work_claims)
+
         # Total Cash Damage
         cash_damage = (
             purely_food +
@@ -99,6 +102,7 @@ class SpendingAnalyticsEngine:
             dinner_average=round(avg_dinner, 2),
             average_cost_per_day=round(avg_per_day, 2),
             etc_expenses_total=round(etc_total, 2),
+            work_claims_total=round(work_claims_total, 2),
             total_cash_damage=round(cash_damage, 2),
             chart_labels=chart_labels,
             chart_full_labels=chart_full_labels,

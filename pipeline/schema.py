@@ -16,6 +16,7 @@ class Expenses:
     utilities_label: str = "Utilities"
     petrol: float = 0.0
     etc: List[EtcExpenseItem] = field(default_factory=list)
+    work_claims: List[EtcExpenseItem] = field(default_factory=list)
 
 @dataclass
 class ArchiveMetadata:
@@ -81,6 +82,7 @@ class MonthAnalytics:
     dinner_average: float = 0.0
     average_cost_per_day: float = 0.0
     etc_expenses_total: float = 0.0
+    work_claims_total: float = 0.0
     total_cash_damage: float = 0.0
     
     # Chart.js visualization datasets
