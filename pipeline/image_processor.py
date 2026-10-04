@@ -22,13 +22,8 @@ class ImageProcessor:
             with Image.open(src_path) as img:
                 img = ImageOps.exif_transpose(img)  # auto-rotate based on phone camera orientation
                 img = img.convert("RGB")
-                # Center crop to square and resize to 400x400
-                w, h = img.size
-                min_dim = min(w, h)
-                left = (w - min_dim) // 2
-                top = (h - min_dim) // 2
-                cropped = img.crop((left, top, left + min_dim, top + min_dim))
-                resized = cropped.resize(MEAL_IMAGE_SIZE, Image.Resampling.LANCZOS)
+                # Direct resize to MEAL_IMAGE_SIZE (400x400) without cropping (preserves 100% of content)
+                resized = img.resize(MEAL_IMAGE_SIZE, Image.Resampling.LANCZOS)
                 resized.save(dest_path, "PNG", optimize=True)
         except ImportError:
             # Fallback if Pillow is not yet installed in bare environment: copy original

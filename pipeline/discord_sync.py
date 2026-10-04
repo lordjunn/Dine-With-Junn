@@ -24,10 +24,15 @@ class DiscordImageSyncer:
         self.channel_id = channel_id or DISCORD_CHANNEL_ID
         self.parser = MarkdownContentParser()
         self.processor = ImageProcessor()
+        self.last_error: Optional[str] = None
 
     def fetch_candidates(self, limit: int = 50, mock: bool = False) -> List[Dict[str, Any]]:
         """Fetches candidate image attachments from Discord channel or generates mock items."""
+        self.last_error = None
         if mock or not self.bot_token or not self.channel_id or "your_" in self.bot_token:
+            if not mock and (not self.bot_token or not self.channel_id or "your_" in self.bot_token):
+                print("[!] Discord credentials not configured in .env. Falling back to mock test candidates.")
+                self.last_error = "Discord credentials (DISCORD_BOT_TOKEN or DISCORD_CHANNEL_ID) not configured in .env. Showing local mock photos."
             return self._generate_mock_candidates(limit=limit)
 
         candidates = []
@@ -54,7 +59,26 @@ class DiscordImageSyncer:
                 )
 
                 if resp.status_code != 200:
-                    print(f"[!] Discord API returned HTTP {resp.status_code}: {resp.text}")
+                    if resp.status_code == 403:
+                        print("\n" + "=" * 65)
+                        print(" [⚠️ DISCORD PERMISSION ERROR: NO ACCESS TO CHANNEL]")
+                        print(f" -> Channel ID: {self.channel_id}")
+                        print(" -> Reason: Bot lacks permission to view this channel or read history.")
+                        print(" -> How to Fix in Discord:")
+                        print("    1. In Discord, right-click the channel -> 'Edit Channel'.")
+                        print("    2. Go to 'Permissions' -> Add your bot/role.")
+                        print("    3. Enable: [✓] View Channel, [✓] Read Message History.")
+                        print("=" * 65 + "\n")
+                        self.last_error = f"Bot lacks permission to view Discord channel {self.channel_id} (HTTP 403 Forbidden). Ensure bot has 'View Channel' and 'Read Message History' permissions enabled."
+                    elif resp.status_code == 401:
+                        print("\n[⚠️ DISCORD AUTH ERROR] Invalid DISCORD_BOT_TOKEN! Check your .env file.\n")
+                        self.last_error = "Invalid Discord Bot Token (HTTP 401 Unauthorized). Check your .env file."
+                    elif resp.status_code == 404:
+                        print(f"\n[⚠️ DISCORD ERROR] Channel ID {self.channel_id} not found (HTTP 404).\n")
+                        self.last_error = f"Discord channel ID {self.channel_id} not found (HTTP 404)."
+                    else:
+                        print(f"[!] Discord API returned HTTP {resp.status_code}: {resp.text}")
+                        self.last_error = f"Discord API returned HTTP {resp.status_code}."
                     break
 
                 messages = resp.json()
@@ -96,6 +120,7 @@ class DiscordImageSyncer:
 
         except Exception as e:
             print(f"[!] Discord API fetch failed ({e}). Falling back to mock test candidates.")
+            self.last_error = f"Discord API connection failed: {e}. Falling back to mock test candidates."
             return self._generate_mock_candidates(limit=limit)
 
     def _generate_mock_candidates(self, limit: int = 50) -> List[Dict[str, Any]]:
@@ -133,14 +158,27 @@ class DiscordImageSyncer:
 
         month_data = self.parser.parse_file(md_path)
 
-        # Respect CLI limit -> .env DISCORD_FETCH_LIMIT -> default 50
+        # Smart pool sizing: calculate unlinked and total meals
+        total_meals = sum(len(day.meals) for day in month_data.days)
+        unlinked_meals = sum(
+            1 for day in month_data.days for meal in day.meals 
+            if not meal.image or not meal.image.strip()
+        )
+        target = unlinked_meals if unlinked_meals > 0 else total_meals
+        target = max(target, 1)
+        smart_pool = min(max(target * 2, 10), 50)
+
+        # Respect CLI limit -> .env DISCORD_FETCH_LIMIT -> smart default
         env_limit = os.getenv("DISCORD_FETCH_LIMIT")
         if limit is not None:
             fetch_count = limit
+            print(f"[*] Candidate limit set by CLI: {fetch_count}")
         elif env_limit and env_limit.strip().isdigit():
             fetch_count = int(env_limit.strip())
+            print(f"[*] Candidate limit set by .env: {fetch_count}")
         else:
-            fetch_count = 50
+            fetch_count = smart_pool
+            print(f"[*] Smart candidate pool auto-scaled to {fetch_count} photos ({unlinked_meals} unlinked meals out of {total_meals} total).")
 
         print(f"[*] Fetching candidate image pool ({fetch_count} photos max) for {month_data.title}...")
         candidates = self.fetch_candidates(limit=fetch_count, mock=mock)
@@ -164,10 +202,26 @@ class DiscordImageSyncer:
         with open(review_html_path, "r", encoding="utf-8") as f:
             template_content = f.read()
 
+        warning_banner_html = ""
+        if self.last_error:
+            warning_banner_html = f'''
+  <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 1rem;">
+    <div style="font-size: 1.4rem; line-height: 1;">⚠️</div>
+    <div style="flex: 1;">
+      <div style="font-weight: 700; color: #fca5a5; font-size: 0.95rem; margin-bottom: 0.25rem;">Discord Permission / Connection Warning</div>
+      <div style="font-size: 0.85rem; color: #fecaca; line-height: 1.4;">{self.last_error}</div>
+      <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 0.5rem;">
+        <strong>Quick Fix in Discord:</strong> Right-click channel &rarr; <strong>Edit Channel</strong> &rarr; <strong>Permissions</strong> &rarr; Add your bot role &rarr; Turn ON <code>View Channel</code> &amp; <code>Read Message History</code>.
+      </div>
+    </div>
+  </div>
+'''
+
         rendered_html = (
             template_content
             .replace("{{ month.title }}", month_data.title)
             .replace("{{ month.slug }}", month_data.slug)
+            .replace("{{ warning_banner | safe }}", warning_banner_html)
             .replace("{{ meals_json | safe }}", json.dumps(meals_list))
             .replace("{{ candidates_json | safe }}", json.dumps(candidates))
         )
