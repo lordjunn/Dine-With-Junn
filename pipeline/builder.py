@@ -15,29 +15,98 @@ from pipeline.schema import MonthData, MonthAnalytics
 from pipeline.parser import MarkdownContentParser
 from pipeline.analytics import SpendingAnalyticsEngine
 
-def format_inline_markdown(text: str) -> str:
-    """Converts inline markdown like **bold**, ~~strikethrough~~, and *italics* without wrapping in paragraphs."""
+LEGACY_SHORT_MONTHS = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"
+}
+
+def _autolink_iso_dates(html_text: str, current_slug: str = "") -> str:
+    """Finds explicit YYYY-MM-DD dates in text outside HTML tags and wraps them in anchor links.
+    - If date >= 2026-04: links to V2 month (with #YYYY-MM-DD anchor).
+    - If 2022-08 <= date <= 2026-03: links to legacy Food-MMU month page (target='_blank').
+    - If date < 2022-08: left unlinked as plain text (pre-archive era).
+    """
+    date_regex = re.compile(r'\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b')
+
+    tokens = re.split(r'(<[^>]+>)', html_text)
+    in_a_tag = False
+    in_code_tag = False
+    out_tokens = []
+
+    for token in tokens:
+        if token.startswith("<"):
+            tag_lower = token.lower()
+            if tag_lower.startswith("<a ") or tag_lower == "<a>":
+                in_a_tag = True
+            elif tag_lower == "</a>":
+                in_a_tag = False
+            elif tag_lower.startswith("<code") or tag_lower == "<code>":
+                in_code_tag = True
+            elif tag_lower == "</code>":
+                in_code_tag = False
+            out_tokens.append(token)
+        else:
+            if not in_a_tag and not in_code_tag:
+                def replace_date(m):
+                    full_date = m.group(0)
+                    y = m.group(1)
+                    mo = m.group(2)
+                    target_slug = f"{y}-{mo}"
+
+                    # 1. V2 Era (2026-04 onwards)
+                    if target_slug >= "2026-04":
+                        if current_slug and current_slug == target_slug:
+                            return f'<a href="#{full_date}" class="date-lore-link" title="Jump to {full_date} in this month">{full_date}</a>'
+                        else:
+                            return f'<a href="{target_slug}.html#{full_date}" class="date-lore-link" title="Jump to {full_date} ({target_slug})">{full_date}</a>'
+
+                    # 2. Food-MMU Legacy Era (2022-08 to 2026-03)
+                    elif "2022-08" <= target_slug <= "2026-03":
+                        mo_int = int(mo)
+                        short_m = LEGACY_SHORT_MONTHS.get(mo_int, "Jan")
+                        yy = y[2:]
+                        legacy_url = f"https://lordjunn.github.io/Food-MMU/Logs/{short_m}%20{yy}.html"
+                        return f'<a href="{legacy_url}" class="date-lore-link legacy-lore-link" target="_blank" rel="noopener noreferrer" title="View {short_m} 20{yy} in Food-MMU Archive (Opens in new tab)">{full_date} ↗</a>'
+
+                    # 3. Pre-archive era (before August 2022)
+                    else:
+                        return full_date
+
+                token = date_regex.sub(replace_date, token)
+            out_tokens.append(token)
+
+    return "".join(out_tokens)
+
+def format_inline_markdown(text: str, current_slug: str = "") -> str:
+    """Converts inline markdown like **bold**, ~~strikethrough~~, *italics*, [links](url), and YYYY-MM-DD date links."""
     if not text:
         return ""
-    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    # Standard markdown links [text](url)
+    html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" class="inline-link">\1</a>', text)
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
     html = re.sub(r'__(.+?)__', r'<strong>\1</strong>', html)
     html = re.sub(r'~~(.+?)~~', r'<s>\1</s>', html)
     html = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', html)
+    html = _autolink_iso_dates(html, current_slug=current_slug)
     return html.strip()
 
-def format_prose_markdown(text: str) -> str:
+def format_prose_markdown(text: str, current_slug: str = "") -> str:
     """Converts prose, meal descriptions, and intro text to HTML:
     - 1 <p> tag per block (only splits when interrupted by <ul> bullets).
     - Single newline in markdown (\n) -> <br>\n (tight break, no gap line).
     - Double newline in markdown (\n\n) -> <br><br>\n\n (+1 empty gap line).
     - Interleaved bullets (- Item) -> tight <ul class="itemized-bullets"> with no blank lines inside.
+    - Explicit YYYY-MM-DD dates auto-link to #YYYY-MM-DD or YYYY-MM.html#YYYY-MM-DD.
+    - Standard markdown links [text](url) -> <a href="url">text</a>.
     """
     if not text:
         return ""
-    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2" class="inline-link">\1</a>', text)
+    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
     html = re.sub(r'__(.+?)__', r'<strong>\1</strong>', html)
     html = re.sub(r'~~(.+?)~~', r'<s>\1</s>', html)
     html = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', html)
+    html = _autolink_iso_dates(html, current_slug=current_slug)
 
     lines = html.splitlines()
     out = []
@@ -107,11 +176,15 @@ class SiteBuilder:
         self.analytics_engine = SpendingAnalyticsEngine()
         self.site_config = load_site_config()
 
-    def build_all(self):
+    def build_all(self, export_csv: Optional[bool] = None):
         """Executes the full static site build process."""
         print(f"[*] Starting build process...")
         self.dist_dir.mkdir(parents=True, exist_ok=True)
         site_config = self.site_config
+
+        if export_csv is None:
+            # Auto-enable in GitHub Actions CI, skip locally to prevent git merge conflicts
+            export_csv = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
 
         # 1. Parse all months
         months_data: List[tuple[MonthData, MonthAnalytics]] = []
@@ -132,7 +205,7 @@ class SiteBuilder:
         jinja_env = self._get_jinja_env()
 
         # 3. Generate Database JSON for Search
-        self._export_search_database(months_data)
+        self._export_search_database(months_data, export_csv=export_csv)
 
         # 4. Render Index Page
         latest_month_obj, latest_analytics = months_data[-1]
@@ -466,7 +539,7 @@ class SiteBuilder:
 
         # Intro text with md_intro / md_format
         if month.intro_text:
-            intro_formatted = format_intro_markdown(month.intro_text)
+            intro_formatted = format_intro_markdown(month.intro_text, current_slug=month.slug)
             html = html.replace("{{ month.intro_text | md_intro | safe }}", intro_formatted)
             html = html.replace("{{ month.intro_text | md_format | safe }}", intro_formatted)
             html = html.replace("{{ month.intro_text | replace('\\n', '<br>') | safe }}", intro_formatted)
@@ -495,7 +568,7 @@ class SiteBuilder:
                 has_real_image = bool(meal.image and meal.image.strip('"\''))
                 media_html = f'<div class="meal-media"><img class="meal-image" src="{meal.image}" alt="{meal.dish_name}" loading="lazy"></div>' if has_real_image else ''
                 vendor_html = f'<span class="vendor-tag">[{meal.restaurant}]</span>' if meal.restaurant else ''
-                desc_html = f'{format_prose_markdown(meal.description)}' if meal.description else ''
+                desc_html = f'{format_prose_markdown(meal.description, current_slug=month.slug)}' if meal.description else ''
 
                 meals_html.append(f"""
                   <article class="meal-card">
@@ -503,7 +576,7 @@ class SiteBuilder:
                     <div class="meal-details">
                       <div class="meal-header-row">
                         <h3 class="meal-title"><span class="dish-name">{meal.dish_name}</span>{vendor_html}</h3>
-                        <span class="meal-price">{format_inline_markdown(meal.price_str or 'Free')}</span>
+                        <span class="meal-price">{format_inline_markdown(meal.price_str or 'Free', current_slug=month.slug)}</span>
                       </div>
                       <div class="meal-type-badge">{meal.meal_type}</div>
                       <div class="meal-description-wrapper">
@@ -537,7 +610,7 @@ class SiteBuilder:
 
         # 2. Generate Outro Retrospective & Spending Summary Section (2-Row Clean Layout)
         media_html = f'<div class="outro-media"><img src="{month.outro.image}" alt="{month.outro.title}" class="outro-image"></div>' if month.outro.image else ''
-        prose_html = f'<div class="description-scrollbox">{month.outro.prose.replace(chr(10), "<br>")}</div>' if month.outro.prose else ''
+        prose_html = f'<div class="description-scrollbox">{format_prose_markdown(month.outro.prose, current_slug=month.slug)}</div>' if month.outro.prose else ''
         outro_heading = month.outro.title if month.outro.title else "Month-Ending Retrospective"
 
         etc_items_html = ""
@@ -567,6 +640,18 @@ class SiteBuilder:
 
         util_html = f"<li><strong>{month.expenses.utilities_label}:</strong> RM {month.expenses.utilities:.2f}</li>" if month.expenses.utilities > 0 else ""
         petrol_html = f"<li><strong>Petrol:</strong> RM {month.expenses.petrol:.2f}</li>" if month.expenses.petrol > 0 else ""
+
+        # Work claims block (reimbursed by company, 0 personal damage)
+        work_claims_html = ""
+        if month.expenses.work_claims:
+            claims_lis = "".join([f"<li>{'(' + str(it.day) + ') ' if it.day else ''}{it.label} - RM {it.amount:.2f}</li>" for it in month.expenses.work_claims])
+            work_claims_html = f"""
+            <li class="stat-work-claims">
+              <strong>💼 Work Claims (Reimbursed):</strong> RM {analytics.work_claims_total:.2f}
+              <ul class="etc-nested-list">
+                {claims_lis}
+              </ul>
+            </li>"""
 
         b_avg_html = f' <span class="avg-note">(~RM {analytics.breakfast_average:.2f} per meal)</span>' if analytics.breakfast_count > 1 else ''
         l_avg_html = f' <span class="avg-note">(~RM {analytics.lunch_average:.2f} per meal)</span>' if analytics.lunch_count > 1 else ''
@@ -608,6 +693,7 @@ class SiteBuilder:
           <strong>Average cost per day:</strong> RM {analytics.average_cost_per_day:.2f}
         </li>
         {etc_items_html}
+        {work_claims_html}
         {rent_html}
         {util_html}
         {petrol_html}
@@ -634,7 +720,7 @@ class SiteBuilder:
 
         return html
 
-    def _export_search_database(self, months_data: List[tuple[MonthData, MonthAnalytics]]):
+    def _export_search_database(self, months_data: List[tuple[MonthData, MonthAnalytics]], export_csv: bool = False):
         """Generates dist/data/food_database.json for instant search and metrics insights."""
         meals_records = []
         csv_items = []
@@ -750,26 +836,30 @@ class SiteBuilder:
                 "labels": self.site_config.get("labels", {"nom_nom_days": "Nom nom days"})
             }, f, indent=2)
 
-        # Save to dist/data/ and project data/
-        for target_dir in [data_dir, BASE_DIR / "data"]:
-            target_dir.mkdir(parents=True, exist_ok=True)
-            with open(target_dir / "menu_items2.csv", "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=['date', 'dish_name', 'restaurant_name', 'price', 'meal_type', 'description', 'image'])
-                writer.writeheader()
-                writer.writerows(csv_items)
-
-            with open(target_dir / "menu_endings.csv", "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'price', 'description', 'image'])
-                writer.writeheader()
-                writer.writerows(csv_endings)
-
-            with open(target_dir / "menu_starters.csv", "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'era', 'teaser', 'reasons', 'description', 'image'])
-                writer.writeheader()
-                writer.writerows(csv_starters)
-
         print(f"[*] Exported {len(meals_records)} meals and {len(summaries_records)} summaries to {db_path.name}")
-        print(f"[+] Generated CSVs: menu_items2.csv ({len(csv_items)} rows), menu_endings.csv ({len(csv_endings)} rows), menu_starters.csv ({len(csv_starters)} rows)")
+
+        if export_csv:
+            # Save to dist/data/ and project data/
+            for target_dir in [data_dir, BASE_DIR / "data"]:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                with open(target_dir / "menu_items2.csv", "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(f, fieldnames=['date', 'dish_name', 'restaurant_name', 'price', 'meal_type', 'description', 'image'])
+                    writer.writeheader()
+                    writer.writerows(csv_items)
+
+                with open(target_dir / "menu_endings.csv", "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'price', 'description', 'image'])
+                    writer.writeheader()
+                    writer.writerows(csv_endings)
+
+                with open(target_dir / "menu_starters.csv", "w", newline="", encoding="utf-8") as f:
+                    writer = csv.DictWriter(f, fieldnames=['month_url', 'title', 'era', 'teaser', 'reasons', 'description', 'image'])
+                    writer.writeheader()
+                    writer.writerows(csv_starters)
+
+            print(f"[+] Generated CSVs: menu_items2.csv ({len(csv_items)} rows), menu_endings.csv ({len(csv_endings)} rows), menu_starters.csv ({len(csv_starters)} rows)")
+        else:
+            print("[*] Skipped local CSV generation (handled remotely via GitHub Actions).")
 
     def _generate_legacy_alias(self, month_obj: MonthData):
         """Generates compatibility alias files for legacy links like dist/Logs/Jul 26.html."""

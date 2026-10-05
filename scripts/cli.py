@@ -28,12 +28,13 @@ def cmd_migrate(args):
     print(f"[+] Successfully migrated to: {output_path}")
 
 def cmd_build(args):
-    """Builds the static site to /dist (Available in Phase 5)."""
+    """Builds the static site to /dist."""
     print("[*] Dine with Junn V2 Static Site Builder")
     try:
         from pipeline.builder import SiteBuilder
         builder = SiteBuilder()
-        builder.build_all()
+        export_csv = True if getattr(args, "csv", False) else None
+        builder.build_all(export_csv=export_csv)
         print("[+] Build complete! Static site generated in /dist")
     except ImportError:
         print("[!] Builder module will be activated in Phase 5.")
@@ -202,6 +203,7 @@ archive:
 outro:
   title: ""
   image: ""
+  # Closing reflections, post-month review, and afterthoughts for {month_name} {year}...
   prose: ""
 expenses:
   Adulting fees: 0.00
@@ -354,6 +356,7 @@ def main():
 
     # Build command
     build_parser = subparsers.add_parser("build", help="Build static site to /dist")
+    build_parser.add_argument("--csv", action="store_true", help="Force export CSV datasets locally (default: skipped locally, handled via GitHub Actions)")
 
     # Serve command
     serve_parser = subparsers.add_parser("serve", help="Start local web server and open site in browser")
