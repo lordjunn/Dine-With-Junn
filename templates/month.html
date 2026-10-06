@@ -176,6 +176,20 @@
           </li>
         {% endif %}
 
+        {% if month.expenses.work_claims %}
+          <li class="stat-work-claims">
+            <strong>💼 Work Claims (Reimbursed):</strong> RM {{ "%.2f" | format(analytics.work_claims_total) }}
+            <ul class="etc-nested-list">
+              {% for item in month.expenses.work_claims %}
+                <li>
+                  {% if item.day %}({{ item.day }}) {% endif %}
+                  {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                </li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% endif %}
+
         {% if month.expenses.adulting_items %}
           <li class="stat-adulting">
             <strong>{{ month.expenses.rental_label }}:</strong> RM {{ "%.2f" | format(month.expenses.rental) }}

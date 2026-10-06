@@ -2,7 +2,43 @@ document.addEventListener('DOMContentLoaded', function() {
   initCollapsibleDescriptions();
   initMealChart();
   initMonthKeyboardNav();
+  initDateAnchorLinks();
 });
+
+// --- In-Page & Cross-Page Date Lore Link Anchors ---
+function initDateAnchorLinks() {
+  function triggerHighlight(targetEl) {
+    if (!targetEl) return;
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    targetEl.classList.remove('highlight-glow');
+    void targetEl.offsetWidth;
+    targetEl.classList.add('highlight-glow');
+  }
+
+  // If navigated with hash (e.g. 2026-06.html#2026-06-22)
+  if (window.location.hash) {
+    const targetId = window.location.hash.substring(1);
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      setTimeout(() => triggerHighlight(targetEl), 200);
+    }
+  }
+
+  // Smooth scroll for in-page date lore links (#YYYY-MM-DD)
+  document.querySelectorAll('a.date-lore-link[href^="#"]').forEach(link => {
+    link.addEventListener('click', function(e) {
+      const targetId = this.getAttribute('href').substring(1);
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        e.preventDefault();
+        try {
+          history.pushState(null, '', '#' + targetId);
+        } catch (err) {}
+        triggerHighlight(targetEl);
+      }
+    });
+  });
+}
 
 // --- Collapsible Long Descriptions ---
 function initCollapsibleDescriptions() {
@@ -122,10 +158,12 @@ function initMealChart() {
         },
         y: {
           beginAtZero: true,
+          suggestedMax: 10,
           grid: { color: colors.gridColor },
           ticks: {
             color: colors.tickColor,
             font: { weight: '600' },
+            maxTicksLimit: 6,
             callback: value => 'RM ' + Number(value).toFixed(2)
           }
         }
