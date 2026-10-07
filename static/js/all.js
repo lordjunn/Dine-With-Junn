@@ -287,11 +287,30 @@ document.addEventListener('DOMContentLoaded', function() {
       // Month Starters View (Predictions & Openings)
       resultsList.innerHTML = sorted.map(item => {
         const monthLabel = item.title ? item.title.replace('Food Archive - ', '') : item.month_slug;
+        const displayTitle = item.teaser 
+          ? (item.teaser.startsWith('"') ? item.teaser : `"${item.teaser}"`)
+          : `Opening Thoughts - ${monthLabel}`;
         const imageSrc = item.starter_image || item.image;
         const eraTag = item.era ? `<span class="badge" style="background: rgba(140, 0, 255, 0.15); color: #c084fc; border: 1px solid rgba(140, 0, 255, 0.3); font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; margin-left: 0.5rem;">${item.era}</span>` : '';
-        const reasonsHtml = (item.reasons && item.reasons.length) 
-          ? `<div style="font-size: 0.8rem; color: #38bdf8; margin: 0.3rem 0;"><strong>Key Schedule:</strong> ${item.reasons.join(', ')}</div>` 
-          : '';
+        let scheduleBadgeHtml = '';
+        if (item.reasons && item.reasons.length) {
+          const count = item.reasons.length;
+          const itemsListHtml = item.reasons.map(r => `<li>${r}</li>`).join('');
+          scheduleBadgeHtml = `
+            <span>•</span>
+            <div class="schedule-popover-container">
+              <button type="button" class="btn-schedule-badge" onclick="event.stopPropagation(); this.parentElement.classList.toggle('is-open')" title="View key schedule & milestones">
+                📅 ${count} ${count === 1 ? 'event' : 'events'} ▾
+              </button>
+              <div class="schedule-popover-panel">
+                <div class="schedule-popover-title">Key Schedule & Milestones</div>
+                <ul class="schedule-popover-list">
+                  ${itemsListHtml}
+                </ul>
+              </div>
+            </div>
+          `;
+        }
 
         const labelNomNom = (rawDatabase.labels && rawDatabase.labels.nom_nom_days) || 'Nom Nom Days';
         return `
@@ -303,16 +322,15 @@ document.addEventListener('DOMContentLoaded', function() {
           ` : ''}
           <div class="search-item-info">
             <div class="search-item-header">
-              <h3 class="search-dish-name">Opening Thoughts - ${monthLabel} ${eraTag}</h3>
+              <h3 class="search-dish-name">${displayTitle} ${eraTag}</h3>
               <span class="search-price">RM ${Number(item.total_cash_damage || 0).toFixed(2)}</span>
             </div>
             <div class="search-meta-row">
               <span><strong>${monthLabel}</strong></span>
-              ${item.teaser ? `<span>•</span><span><em>"${item.teaser}"</em></span>` : ''}
               <span>•</span>
               <span>${labelNomNom}: ${item.nom_nom_days ? item.nom_nom_days + (item.nom_nom_days === 1 ? ' day' : ' days') : 'N/A'}</span>
+              ${scheduleBadgeHtml}
             </div>
-            ${reasonsHtml}
             ${item.intro_text ? `
               <div class="summary-prose-scrollbox">
                 ${item.intro_text.replace(/\n/g, '<br>')}
@@ -455,5 +473,12 @@ document.addEventListener('DOMContentLoaded', function() {
     insightsPanel.style.display = isInsightOpen ? 'block' : 'none';
     showInsightButton.textContent = isInsightOpen ? 'Hide Insights Leaderboard' : 'Show Insights Leaderboard';
     if (isInsightOpen) render();
+  });
+
+  // Close schedule popover on click outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.schedule-popover-container')) {
+      document.querySelectorAll('.schedule-popover-container.is-open').forEach(el => el.classList.remove('is-open'));
+    }
   });
 });
