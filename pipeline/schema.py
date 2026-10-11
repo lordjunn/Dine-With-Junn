@@ -6,6 +6,7 @@ class EtcExpenseItem:
     label: str
     amount: float
     day: Optional[int] = None
+    note: str = ""
 
 @dataclass
 class Expenses:

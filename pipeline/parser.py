@@ -73,10 +73,11 @@ class MarkdownContentParser:
                     l_val = str(item.get("label", "")).strip()
                     a_val = self._clean_float(item.get("amount", 0.0))
                     d_val = self._clean_int(item.get("day"))
+                    n_val = str(item.get("note", item.get("comment", ""))).strip()
                     # Filter placeholder items
                     if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
                         continue
-                    adulting_items.append(EtcExpenseItem(label=l_val, amount=a_val, day=d_val))
+                    adulting_items.append(EtcExpenseItem(label=l_val, amount=a_val, day=d_val, note=n_val))
             rental_amount = sum(it.amount for it in adulting_items)
             rental_label = "Adulting fees"
         else:
@@ -102,13 +103,15 @@ class MarkdownContentParser:
                 l_val = str(item.get("label", "")).strip()
                 a_val = self._clean_float(item.get("amount", 0.0))
                 d_val = self._clean_int(item.get("day"))
+                n_val = str(item.get("note", item.get("comment", ""))).strip()
                 # Filter placeholder items like - label: "(word here)"
                 if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
                     continue
                 etc_items.append(EtcExpenseItem(
                     label=l_val,
                     amount=a_val,
-                    day=d_val
+                    day=d_val,
+                    note=n_val
                 ))
 
         # 5. Work claims items (reimbursed by company)
@@ -118,13 +121,15 @@ class MarkdownContentParser:
                 l_val = str(item.get("label", "")).strip()
                 a_val = self._clean_float(item.get("amount", 0.0))
                 d_val = self._clean_int(item.get("day"))
+                n_val = str(item.get("note", item.get("comment", ""))).strip()
                 # Filter placeholder items
                 if (not l_val or l_val in ("(word here)", "word here")) and a_val == 0.0:
                     continue
                 work_claims_items.append(EtcExpenseItem(
                     label=l_val,
                     amount=a_val,
-                    day=d_val
+                    day=d_val,
+                    note=n_val
                 ))
 
         expenses = Expenses(
