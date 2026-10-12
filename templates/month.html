@@ -170,6 +170,12 @@
                 <li>
                   {% if item.day %}({{ item.day }}) {% endif %}
                   {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                  {% if item.note %}
+                    <span class="expense-note-badge" tabindex="0" title="{{ item.note }}" aria-label="{{ item.note }}">
+                      <span class="expense-note-icon">💬</span>
+                      <span class="expense-note-tooltip">{{ item.note }}</span>
+                    </span>
+                  {% endif %}
                 </li>
               {% endfor %}
             </ul>
@@ -184,6 +190,12 @@
                 <li>
                   {% if item.day %}({{ item.day }}) {% endif %}
                   {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                  {% if item.note %}
+                    <span class="expense-note-badge" tabindex="0" title="{{ item.note }}" aria-label="{{ item.note }}">
+                      <span class="expense-note-icon">💬</span>
+                      <span class="expense-note-tooltip">{{ item.note }}</span>
+                    </span>
+                  {% endif %}
                 </li>
               {% endfor %}
             </ul>
@@ -198,6 +210,12 @@
                 <li>
                   {% if item.day %}({{ item.day }}) {% endif %}
                   {{ item.label }} - RM {{ "%.2f" | format(item.amount) }}
+                  {% if item.note %}
+                    <span class="expense-note-badge" tabindex="0" title="{{ item.note }}" aria-label="{{ item.note }}">
+                      <span class="expense-note-icon">💬</span>
+                      <span class="expense-note-tooltip">{{ item.note }}</span>
+                    </span>
+                  {% endif %}
                 </li>
               {% endfor %}
             </ul>

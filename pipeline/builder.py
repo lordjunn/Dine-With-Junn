@@ -613,9 +613,18 @@ class SiteBuilder:
         prose_html = f'<div class="description-scrollbox">{format_prose_markdown(month.outro.prose, current_slug=month.slug)}</div>' if month.outro.prose else ''
         outro_heading = month.outro.title if month.outro.title else "Month-Ending Retrospective"
 
+        def _format_expense_li(it) -> str:
+            day_str = f"({it.day}) " if it.day else ""
+            note_html = ""
+            if it.note:
+                import html as py_html
+                safe_note = py_html.escape(it.note)
+                note_html = f' <span class="expense-note-badge" tabindex="0" title="{safe_note}" aria-label="{safe_note}"><span class="expense-note-icon">💬</span><span class="expense-note-tooltip">{safe_note}</span></span>'
+            return f"<li>{day_str}{it.label} - RM {it.amount:.2f}{note_html}</li>"
+
         etc_items_html = ""
         if month.expenses.etc:
-            etc_lis = "".join([f"<li>{'(' + str(it.day) + ') ' if it.day else ''}{it.label} - RM {it.amount:.2f}</li>" for it in month.expenses.etc])
+            etc_lis = "".join([_format_expense_li(it) for it in month.expenses.etc])
             etc_items_html = f"""
             <li class="stat-etc">
               <strong>Etc. Expenses:</strong> RM {analytics.etc_expenses_total:.2f}
@@ -627,7 +636,7 @@ class SiteBuilder:
         # Adulting fees / Rental block (supports itemized list or single float)
         rent_html = ""
         if month.expenses.adulting_items:
-            adult_lis = "".join([f"<li>{'(' + str(it.day) + ') ' if it.day else ''}{it.label} - RM {it.amount:.2f}</li>" for it in month.expenses.adulting_items])
+            adult_lis = "".join([_format_expense_li(it) for it in month.expenses.adulting_items])
             rent_html = f"""
             <li class="stat-adulting">
               <strong>{month.expenses.rental_label}:</strong> RM {month.expenses.rental:.2f}
@@ -644,7 +653,7 @@ class SiteBuilder:
         # Work claims block (reimbursed by company, 0 personal damage)
         work_claims_html = ""
         if month.expenses.work_claims:
-            claims_lis = "".join([f"<li>{'(' + str(it.day) + ') ' if it.day else ''}{it.label} - RM {it.amount:.2f}</li>" for it in month.expenses.work_claims])
+            claims_lis = "".join([_format_expense_li(it) for it in month.expenses.work_claims])
             work_claims_html = f"""
             <li class="stat-work-claims">
               <strong>💼 Work Claims (Reimbursed):</strong> RM {analytics.work_claims_total:.2f}
