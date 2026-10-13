@@ -69,6 +69,11 @@ class MonthData:
         unit = "day" if self.nom_nom_days == 1 else "days"
         return f"{self.nom_nom_days} {unit}"
 
+    @property
+    def month_year(self) -> str:
+        import calendar
+        return f"{calendar.month_name[self.month]} {self.year}"
+
 @dataclass
 class MonthAnalytics:
     purely_food_expenses: float = 0.0

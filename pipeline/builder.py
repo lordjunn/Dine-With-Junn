@@ -528,6 +528,7 @@ class SiteBuilder:
 
         # Month Title & Meta
         html = html.replace("{{ month.title }}", month.title)
+        html = html.replace("{{ month.month_year }}", month.month_year)
         
         # Nom nom days badge
         label_nom_nom = ctx.get("site_config", {}).get("labels", {}).get("nom_nom_days", "Nom nom days")
