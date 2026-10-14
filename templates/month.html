@@ -30,7 +30,6 @@
 
   <!-- Header Card: Milestones, Reasons, & Opening Prediction -->
   <header class="month-header-card">
-    <div class="month-header-badge">Monthly Food Log</div>
     <h1 class="month-main-title">{{ month.title }}</h1>
 
     <div class="month-meta-box">
@@ -240,7 +239,7 @@
     <div class="chart-card">
       <div class="chart-header">
         <h2>📈 Daily Meal Cost Analytics</h2>
-        <p>Breakdown of daily food spending, breakfast, lunch, and dinner costs across {{ month.title }}.</p>
+        <p>Breakdown of daily food spending, breakfast, lunch, and dinner costs across {{ month.month_year }}.</p>
       </div>
       <div class="chart-container">
         <canvas id="mealChart" width="400" height="200"></canvas>
