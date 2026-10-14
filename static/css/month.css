@@ -556,6 +556,71 @@
   gap: 0.15rem;
 }
 
+.etc-nested-list li {
+  position: relative;
+}
+
+/* Expense Note Popover Badge */
+.expense-note-badge {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  outline: none;
+}
+
+.expense-note-icon {
+  font-size: 0.82rem;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  line-height: 1;
+}
+
+.expense-note-badge:hover .expense-note-icon,
+.expense-note-badge:focus .expense-note-icon {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.expense-note-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  min-width: 160px;
+  max-width: min(320px, 85vw);
+  width: max-content;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.expense-note-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 10px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--border-strong) transparent transparent transparent;
+}
+
+.expense-note-badge:hover .expense-note-tooltip,
+.expense-note-badge:focus .expense-note-tooltip {
+  display: block;
+}
+
 /* --- Chart Section --- */
 .chart-card {
   background: var(--bg-surface);
