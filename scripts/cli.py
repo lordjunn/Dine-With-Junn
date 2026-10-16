@@ -70,6 +70,12 @@ def cmd_sync_images(args):
     syncer = DiscordImageSyncer()
     syncer.launch_review_server(args.slug, limit=args.limit, mock=args.mock)
 
+def cmd_validate(args):
+    """Runs data, markdown, and image asset validation checks."""
+    from scripts.validate import validate_content_and_assets
+    code = validate_content_and_assets()
+    sys.exit(code)
+
 def _get_previous_month_era(year: int, month: int) -> tuple[str, str]:
     """Finds previous month's markdown file and extracts its era. Returns (era, source_description)."""
     import re
@@ -330,6 +336,15 @@ def cmd_sync_hdd(args):
             else:
                 skipped_files += 1
 
+    # Clean up obsolete generate_csv.yml on HDD if present
+    old_csv_wf = dest_dir / ".github" / "workflows" / "generate_csv.yml"
+    if old_csv_wf.exists():
+        try:
+            old_csv_wf.unlink()
+            print(f"[*] Cleaned up retired workflow on HDD: {old_csv_wf.name}")
+        except Exception:
+            pass
+
     print(f"[+] Smart sync complete!")
     print(f"    -> Updated / Copied: {copied_files} file(s)")
     print(f"    -> Skipped (unchanged): {skipped_files} file(s)")
@@ -368,6 +383,9 @@ def main():
     sync_parser.add_argument("--limit", type=int, default=None, help="Number of Discord photos to fetch (defaults to number of meals)")
     sync_parser.add_argument("--mock", action="store_true", help="Run in mock/offline mode with sample photos")
 
+    # Validate command
+    subparsers.add_parser("validate", help="Validate all markdown logs, images, and test site generation")
+
     # Help command
     subparsers.add_parser("help", help="Show this help message")
 
@@ -388,6 +406,8 @@ def main():
         cmd_serve(args)
     elif args.command == "sync-images":
         cmd_sync_images(args)
+    elif args.command == "validate":
+        cmd_validate(args)
 
 if __name__ == "__main__":
     main()
