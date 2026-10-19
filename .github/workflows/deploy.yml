@@ -11,12 +11,16 @@ on:
       - 'static/**'
       - 'pipeline/**'
       - 'scripts/**'
+      - 'config.json'
       - 'requirements.txt'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -25,14 +29,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  validate-build-deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -42,20 +48,45 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt ruff
 
-      - name: Build Static Site to /dist
+      - name: Lint Code Quality (Ruff)
         run: |
-          python scripts/cli.py build
+          ruff check pipeline/ scripts/
+
+      - name: Validate Markdown & Image Assets
+        run: |
+          python scripts/validate.py
+
+      - name: Build Static Site & CSVs
+        run: |
+          python scripts/cli.py build --csv
+
+      - name: Commit and Push Generated CSVs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "No changes in data/ to commit."
+          else
+            git commit -m "Auto-generate CSVs [skip ci]"
+            git push origin main
+          fi
 
       - name: Setup GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
       - name: Upload /dist Artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'dist/'
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4
