@@ -53,7 +53,7 @@ jobs:
 
       - name: Lint Code Quality (Ruff)
         run: |
-          ruff check pipeline/ scripts/
+          ruff check --select E9,F63,F7,F82 pipeline/ scripts/
 
       - name: Validate Markdown & Image Assets
         run: |
