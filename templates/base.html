@@ -37,12 +37,15 @@
         <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle Theme">🌙 Dark</button>
       </div>
 
-      <!-- Mobile Menu Toggle -->
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+      <!-- Mobile Actions (Theme Toggle + Hamburger) -->
+      <div class="nav-mobile-actions">
+        <button class="theme-toggle-btn mobile-theme-btn" aria-label="Toggle Theme">🌙 Dark</button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
     </div>
 
     <!-- Mobile Drawer -->
@@ -54,6 +57,10 @@
       <a href="{{ root_path }}archives.html">Archives</a>
       <a href="{{ root_path }}all.html">Search All Logs</a>
       <a href="https://lordjunn.github.io/Food-MMU/index.html" target="_blank">🏛️ MMU Heritage Archive (2022–2026)</a>
+      <div class="mobile-drawer-theme">
+        <span>Appearance</span>
+        <button class="theme-toggle-btn drawer-theme-btn" aria-label="Toggle Theme">🌙 Dark</button>
+      </div>
     </div>
   </nav>
 
@@ -90,19 +97,27 @@
 
   <script>
     // Theme Switcher Logic
-    const themeBtn = document.getElementById('themeToggleBtn');
+    const themeButtons = document.querySelectorAll('.theme-toggle-btn');
     const currentTheme = localStorage.getItem('site-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', currentTheme);
-    if (themeBtn) {
-      themeBtn.textContent = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
-      themeBtn.addEventListener('click', () => {
+
+    function updateThemeUI(theme) {
+      themeButtons.forEach(btn => {
+        btn.textContent = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
+      });
+    }
+
+    updateThemeUI(currentTheme);
+
+    themeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
         const active = document.documentElement.getAttribute('data-theme');
         const next = active === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('site-theme', next);
-        themeBtn.textContent = next === 'dark' ? '☀️ Light' : '🌙 Dark';
+        updateThemeUI(next);
       });
-    }
+    });
 
     // Mobile Drawer Toggle
     const navToggle = document.getElementById('navToggle');
@@ -111,6 +126,14 @@
       navToggle.addEventListener('click', () => {
         mobileDrawer.classList.toggle('is-open');
         navToggle.classList.toggle('is-active');
+      });
+
+      // Auto-close drawer if screen zooms out or resizes to desktop width
+      window.matchMedia('(min-width: 769px)').addEventListener('change', (e) => {
+        if (e.matches) {
+          mobileDrawer.classList.remove('is-open');
+          navToggle.classList.remove('is-active');
+        }
       });
     }
   </script>
