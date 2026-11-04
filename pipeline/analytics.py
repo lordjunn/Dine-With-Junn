@@ -43,15 +43,15 @@ class SpendingAnalyticsEngine:
 
                 if "breakfast" in m_type:
                     day_breakfast += price
-                    if price > 0 or meal.price_str.lower() == "free":
+                    if price > 0:
                         breakfast_count += 1
                 elif "lunch" in m_type:
                     day_lunch += price
-                    if price > 0 or meal.price_str.lower() == "free":
+                    if price > 0:
                         lunch_count += 1
                 elif "dinner" in m_type:
                     day_dinner += price
-                    if price > 0 or meal.price_str.lower() == "free":
+                    if price > 0:
                         dinner_count += 1
 
             purely_food += day_food_cost

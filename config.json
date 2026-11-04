@@ -12,5 +12,21 @@
   },
   "labels": {
     "nom_nom_days": "Nom Nom Days"
+  },
+  "recurring_monthly_expenses": {
+    "adulting_fees": [
+      {
+        "label": "Household Contribution",
+        "day": 1,
+        "amount": 500.0
+      },
+      {
+        "label": "Phone Bill",
+        "day": 1,
+        "amount": 30.0,
+        "note": "5G Hyper 30 (RM 30/mo), under Celcom, from Digi"
+      }
+    ],
+    "petrol": 0.0
   }
 }

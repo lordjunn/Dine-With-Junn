@@ -29,6 +29,9 @@ if env_file.exists():
                 if k not in os.environ or not os.environ[k]:
                     os.environ[k] = v
 
+# V1 archive location (legacy Food-MMU folder, set in .env)
+V1_BASE_DIR = Path(os.getenv("V1_BASE_DIR")) if os.getenv("V1_BASE_DIR") else None
+
 # Discord Bot Configuration
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 DISCORD_CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID", "")
