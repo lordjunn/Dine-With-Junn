@@ -4,6 +4,8 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+from pipeline.config import V1_BASE_DIR
+
 class V1HtmlMigrator:
     """Migrates legacy Dine with Junn V1 HTML month files into V2 Markdown."""
 
@@ -29,7 +31,9 @@ class V1HtmlMigrator:
     }
 
     def __init__(self, v1_base_dir: Optional[Path] = None, v2_base_dir: Optional[Path] = None):
-        self.v1_base_dir = Path(v1_base_dir) if v1_base_dir else Path(r"C:\Users\Junn Kit\OneDrive\Food blog")
+        if not (v1_base_dir or V1_BASE_DIR):
+            raise ValueError("V1_BASE_DIR is not set. Add it to your .env file.")
+        self.v1_base_dir = Path(v1_base_dir) if v1_base_dir else V1_BASE_DIR
         self.v2_base_dir = Path(v2_base_dir) if v2_base_dir else Path(__file__).resolve().parent.parent
 
     def parse_html_file(self, html_path: Path) -> Dict[str, Any]:
