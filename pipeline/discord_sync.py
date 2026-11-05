@@ -320,8 +320,16 @@ class DiscordImageSyncer:
 
             if src_path.exists():
                 saved_rel_path = self.processor.process_and_save(src_path, year, month_name, dest_filename)
-                self.processor.update_markdown_meal_image(md_path, dish_name, saved_rel_path)
-                print(f"  -> Applied: {dish_name} => {saved_rel_path}")
+                updated = self.processor.update_markdown_meal_image(
+                    md_path,
+                    dish_name,
+                    saved_rel_path,
+                    date_str=date_str,
+                )
+                if updated:
+                    print(f"  -> Applied: {dish_name} => {saved_rel_path}")
+                else:
+                    print(f"  [!] Could not find Markdown meal to update: {date_str} - {dish_name}")
 
                 # Clean temporary downloaded file
                 if "temp_dl_" in str(src_path) and src_path.exists():
