@@ -358,6 +358,11 @@ a:hover {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+/* Blurred backdrop copy of the cover image; only shown in the stacked mobile layout */
+.spotlight-bg {
+  display: none;
+}
+
 .spotlight-card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--card-shadow-hover);
@@ -689,8 +694,33 @@ a:hover {
   .nav-mobile-actions { display: flex; align-items: center; gap: 0.5rem; }
   .nav-toggle { display: flex; }
   .mobile-drawer.is-open { display: flex; }
-  .spotlight-card { grid-template-columns: 1fr; }
-  .spotlight-media { height: 200px; }
+  .spotlight-card { grid-template-columns: 1fr; max-height: none; position: relative; }
+  /* The cover image fills the whole card and fades into the text area (no seam, no duplicate crop) */
+  .spotlight-media { height: 240px; position: relative; z-index: 1; }
+  .spotlight-bg {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+    z-index: 0;
+  }
+  .spotlight-bg ~ .spotlight-media { background: transparent; }
+  .spotlight-bg ~ .spotlight-media img { visibility: hidden; }
+  .spotlight-body {
+    position: relative;
+    z-index: 1;
+    padding-top: 2.5rem;
+    background: var(--bg-surface);
+    background: linear-gradient(
+      to bottom,
+      transparent 0,
+      color-mix(in srgb, var(--bg-surface) 55%, transparent) 30px,
+      color-mix(in srgb, var(--bg-surface) 92%, transparent) 70px
+    );
+  }
   .chapters-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .hero-title { font-size: 1.75rem; }

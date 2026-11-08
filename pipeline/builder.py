@@ -452,6 +452,7 @@ class SiteBuilder:
             intro_trunc = (latest.intro_text[:220] + "...") if len(latest.intro_text) > 220 else latest.intro_text
             month_name = latest.title.replace("Food Archive - ", "") if latest.title.startswith("Food Archive - ") else latest.title
             teaser_html = f'<div class="spotlight-teaser">"{latest.archive.teaser}"</div>' if latest.archive.teaser else ''
+            bg_html = f'<img class="spotlight-bg" src="{img_src}" alt="{latest.title}">' if img_src else ''
 
             spotlight_section = f"""
   <section class="spotlight-section">
@@ -461,6 +462,7 @@ class SiteBuilder:
     </div>
 
     <div class="spotlight-card">
+      {bg_html}
       <div class="spotlight-media">
         {img_html}
       </div>

@@ -40,6 +40,10 @@
     </div>
 
     <div class="spotlight-card">
+      {% set spotlight_img = latest_month.archive.image or latest_month.outro.image %}
+      {% if spotlight_img %}
+        <img class="spotlight-bg" src="{{ root_path }}{{ spotlight_img }}" alt="{{ latest_month.title }}">
+      {% endif %}
       <div class="spotlight-media">
         {% if latest_month.archive.image %}
           <img src="{{ root_path }}{{ latest_month.archive.image }}" alt="{{ latest_month.title }}">
