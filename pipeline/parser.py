@@ -1,3 +1,4 @@
+import calendar
 import re
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -26,7 +27,8 @@ class MarkdownContentParser:
 
         year = int(frontmatter_dict.get("year", 2026))
         month = int(frontmatter_dict.get("month", 7))
-        slug = str(frontmatter_dict.get("slug", f"{year:04d}-{month:02d}"))
+        # slug is optional; blank or missing falls back to YYYY-MM
+        slug = str(frontmatter_dict.get("slug") or "").strip() or f"{year:04d}-{month:02d}"
         title = str(frontmatter_dict.get("title", f"Food Archive - {slug}"))
         nom_nom_days = frontmatter_dict.get("nom_nom_days", frontmatter_dict.get("food_days"))
         if nom_nom_days is not None:
@@ -43,14 +45,14 @@ class MarkdownContentParser:
         archive = ArchiveMetadata(
             era=str(archive_raw.get("era", "Unknown grounds")),
             teaser=str(archive_raw.get("teaser", "")),
-            image=str(archive_raw.get("image", ""))
+            image=self._resolve_image(archive_raw.get("image"), year, month)
         )
 
         # Outro Metadata
         outro_raw = frontmatter_dict.get("outro", {})
         outro = OutroMetadata(
             title=str(outro_raw.get("title", "")),
-            image=str(outro_raw.get("image", "")),
+            image=self._resolve_image(outro_raw.get("image"), year, month),
             prose=str(outro_raw.get("prose", "")).strip()
         )
 
@@ -144,7 +146,7 @@ class MarkdownContentParser:
         )
 
         # Parse Daily Entries
-        days = self._parse_body_days(body_text)
+        days = self._parse_body_days(body_text, year, month)
 
         # Auto-compute active nom nom days if not explicitly overridden
         active_days_with_meals = len([d for d in days if len(d.meals) > 0])
@@ -359,7 +361,23 @@ class MarkdownContentParser:
 
         return result
 
-    def _parse_body_days(self, body_text: str) -> List[DayEntry]:
+    @staticmethod
+    def _resolve_image(value: Any, year: int, month: int) -> str:
+        """Expands a bare filename (e.g. 'Sakiko.png') to images/YYYY/MonthName/<file>.
+
+        Anything containing a path separator is treated as an explicit path and
+        returned unchanged, as are blank values.
+        """
+        if value is None:
+            return ""
+        raw = str(value).strip().strip('"\'').strip()
+        if not raw:
+            return ""
+        if "/" in raw or "\\" in raw:
+            return raw
+        return f"images/{year}/{calendar.month_name[month]}/{raw}"
+
+    def _parse_body_days(self, body_text: str, year: Optional[int] = None, month: Optional[int] = None) -> List[DayEntry]:
         """Parses the Markdown body text into daily entries and meals."""
         days = []
         # Split by ## YYYY-MM-DD (Day)
@@ -372,7 +390,7 @@ class MarkdownContentParser:
                 day_of_week = day_sections[idx + 1].strip()
                 day_content = day_sections[idx + 2] if idx + 2 < len(day_sections) else ""
 
-                meals = self._parse_meals(day_content)
+                meals = self._parse_meals(day_content, year, month)
                 days.append(DayEntry(
                     date_str=date_str,
                     day_of_week=day_of_week,
@@ -381,7 +399,7 @@ class MarkdownContentParser:
 
         return days
 
-    def _parse_meals(self, day_text: str) -> List[MealItem]:
+    def _parse_meals(self, day_text: str, year: Optional[int] = None, month: Optional[int] = None) -> List[MealItem]:
         """Parses meal headers (### Dish Name [Restaurant]) and their attributes."""
         meals = []
         # Split by ### Dish Name
@@ -442,6 +460,8 @@ class MarkdownContentParser:
                         meal_type = line_s[len("- Meal:"):].strip()
                     elif reading_meta and line_s.startswith("- Image:"):
                         image_path = self._unquote(line_s[len("- Image:"):].strip())
+                        if year is not None and month is not None:
+                            image_path = self._resolve_image(image_path, year, month)
                     else:
                         reading_meta = False
                         raw_content_lines.append(line)
