@@ -1,5 +1,6 @@
 import sys
 import argparse
+import datetime
 import json
 import re
 from pathlib import Path
@@ -453,9 +454,9 @@ def _is_empty_day_section(section: str) -> bool:
     return True
 
 
-def _purge_empty_days_in_text(text: str, before: "datetime.date") -> tuple[str, list[str]]:
+def _purge_empty_days_in_text(text: str, before: datetime.date) -> tuple[str, list[str]]:
     """Removes empty day sections dated before `before`. Returns (new_text, purged_dates)."""
-    import datetime
+
 
     parts = text.split("---", 2)
     if not text.startswith("---") or len(parts) < 3:
@@ -488,8 +489,6 @@ def _purge_empty_days_in_text(text: str, before: "datetime.date") -> tuple[str, 
 
 def cmd_purge_empty(args):
     """Deletes day sections with no logged meals, from the start of the month(s) up to yesterday."""
-    import datetime
-
     if args.before:
         try:
             before = datetime.date.fromisoformat(args.before)
