@@ -1,6 +1,9 @@
 import sys
 import argparse
+import json
+import re
 from pathlib import Path
+from typing import Optional
 
 # Add project root to sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -8,15 +11,115 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from pipeline.migrator import V1HtmlMigrator
-from pipeline.config import CONTENT_DIR
+from pipeline.config import BASE_DIR, CONTENT_DIR, V1_BASE_DIR
+
+
+def _load_recurring_expenses() -> dict:
+    """Loads recurring monthly expenses from config.json."""
+    config_path = BASE_DIR / "config.json"
+    try:
+        with config_path.open("r", encoding="utf-8") as config_file:
+            config = json.load(config_file)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Unable to read {config_path.name}: {exc}") from exc
+
+    recurring = config.get("recurring_monthly_expenses", {})
+    if not isinstance(recurring, dict):
+        raise ValueError("config.json recurring_monthly_expenses must be an object.")
+    return recurring
+
+
+def _yaml_scalar(value) -> str:
+    """Formats a simple config value safely for the generated YAML."""
+    if isinstance(value, str):
+        return json.dumps(value)
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _render_recurring_expenses() -> str:
+    """Renders configured recurring expenses for a month's frontmatter."""
+    recurring = _load_recurring_expenses()
+    adulting_fees = recurring.get("adulting_fees", [])
+    if adulting_fees and not isinstance(adulting_fees, list):
+        raise ValueError("config.json adulting_fees must be a list.")
+
+    lines = ["  Adulting fees:"]
+    for item in adulting_fees:
+        if not isinstance(item, dict) or not str(item.get("label", "")).strip():
+            raise ValueError("Each adulting fee must be an object with a label.")
+        lines.append(f"    - label: {_yaml_scalar(item['label'])}")
+        lines.append(f"      day: {_yaml_scalar(item.get('day'))}")
+        lines.append(f"      amount: {_yaml_scalar(item.get('amount', 0.0))}")
+        if item.get("note"):
+            lines.append(f"      note: {_yaml_scalar(item['note'])}")
+    if not adulting_fees:
+        lines.append("    # Add recurring fees here in config.json.")
+
+    for key in ("utilities", "petrol"):
+        lines.append(f"  {key}: {_yaml_scalar(recurring.get(key, 0.0))}")
+    lines.append("  etc: []")
+    return "\n".join(lines)
+
+
+def _is_empty_month_template(month_path: Path) -> bool:
+    """Returns true only when a month has no meaningful user-entered content."""
+    from pipeline.parser import MarkdownContentParser
+
+    month = MarkdownContentParser().parse_file(month_path)
+    if any(day.meals for day in month.days):
+        return False
+    expenses = month.expenses
+    recurring = _load_recurring_expenses()
+    expected_adulting = {
+        (
+            str(item.get("label", "")).strip(),
+            float(item.get("amount", 0.0)),
+            int(item["day"]) if item.get("day") is not None else None,
+            str(item.get("note", "")).strip(),
+        )
+        for item in recurring.get("adulting_fees", [])
+        if isinstance(item, dict)
+    }
+    actual_adulting = {
+        (item.label, item.amount, item.day, item.note)
+        for item in expenses.adulting_items
+    }
+    expected_adulting_total = sum(item[1] for item in expected_adulting)
+    if (
+        expenses.rental != expected_adulting_total
+        or expenses.utilities != float(recurring.get("utilities", 0.0))
+        or expenses.petrol != float(recurring.get("petrol", 0.0))
+        or actual_adulting != expected_adulting
+        or any(item.amount != 0 for item in expenses.etc)
+        or any(item.amount != 0 for item in expenses.work_claims)
+    ):
+        return False
+
+    intro = month.intro_text.strip()
+    intro_is_placeholder = (
+        not intro
+        or intro.startswith("Opening thoughts, mood, and predictions for ")
+        or intro == "Your opening predictions, hopes, and fears for the month..."
+    )
+    meaningful_sections = (
+        not intro_is_placeholder,
+        any(reason.strip() and not reason.startswith("Milestone 1:") for reason in month.reasons),
+        bool(month.archive.teaser.strip() or month.archive.image.strip()),
+        bool(month.outro.title.strip() or month.outro.image.strip() or month.outro.prose.strip()),
+    )
+    if any(meaningful_sections):
+        return False
+    return True
 
 def cmd_migrate(args):
     """Migrates a legacy V1 HTML month file to V2 Markdown."""
     target_path = Path(args.html_file)
     if not target_path.exists():
         # Check in V1 default path
-        v1_default = Path(r"C:\Users\Junn Kit\OneDrive\Food blog\Logs") / target_path.name
-        if v1_default.exists():
+        v1_default = V1_BASE_DIR / "Logs" / target_path.name if V1_BASE_DIR else None
+        if v1_default and v1_default.exists():
             target_path = v1_default
         else:
             print(f"[Error] Target HTML file does not exist: {args.html_file}")
@@ -27,17 +130,73 @@ def cmd_migrate(args):
     output_path = migrator.migrate_file(target_path)
     print(f"[+] Successfully migrated to: {output_path}")
 
+def _snapshot_sources() -> dict:
+    """Maps every watched source file to (mtime_ns, size) for change detection."""
+    snapshot = {}
+    roots = [BASE_DIR / name for name in ("content", "templates", "static", "images", "themes")]
+    paths = [BASE_DIR / "config.json"]
+    for root in roots:
+        if root.exists():
+            paths.extend(p for p in root.rglob("*") if p.is_file())
+    for path in paths:
+        try:
+            stat = path.stat()
+        except OSError:
+            continue  # file vanished mid-scan (editor temp file etc.)
+        snapshot[path] = (stat.st_mtime_ns, stat.st_size)
+    return snapshot
+
+
+def _watch_and_build(build_once, interval: float = 1.0):
+    """Runs build_once() now, then again whenever a source file changes. Ctrl+C to stop."""
+    import time
+
+    def safe_build():
+        try:
+            build_once()
+        except Exception as exc:  # keep watching so a half-saved file doesn't kill the loop
+            print(f"[!] Build failed: {exc}")
+
+    safe_build()
+    previous = _snapshot_sources()
+    print("[*] Watching content/, templates/, static/, images/, themes/ and config.json... (Ctrl+C to stop)")
+    print("    Changes to Python files in pipeline/ or scripts/ need a restart.")
+    try:
+        while True:
+            time.sleep(interval)
+            current = _snapshot_sources()
+            if current == previous:
+                continue
+            changed = sorted({p for p in current.keys() | previous.keys() if current.get(p) != previous.get(p)})
+            time.sleep(0.3)  # let the editor finish writing
+            names = ", ".join(str(p.relative_to(BASE_DIR)) for p in changed[:3])
+            more = f" (+{len(changed) - 3} more)" if len(changed) > 3 else ""
+            print(f"[*] Change detected: {names}{more}")
+            previous = _snapshot_sources()
+            safe_build()
+    except KeyboardInterrupt:
+        print("\n[*] Watch stopped.")
+
+
 def cmd_build(args):
     """Builds the static site to /dist."""
     print("[*] Dine with Junn V2 Static Site Builder")
     try:
         from pipeline.builder import SiteBuilder
-        builder = SiteBuilder()
-        export_csv = True if getattr(args, "csv", False) else None
-        builder.build_all(export_csv=export_csv)
-        print("[+] Build complete! Static site generated in /dist")
     except ImportError:
         print("[!] Builder module will be activated in Phase 5.")
+        return
+
+    export_csv = True if getattr(args, "csv", False) else None
+
+    def build_once():
+        SiteBuilder().build_all(export_csv=export_csv)
+        print("[+] Build complete! Static site generated in /dist")
+
+    if getattr(args, "watch", False):
+        _watch_and_build(build_once)
+    else:
+        build_once()
 
 def cmd_serve(args):
     """Serves the /dist folder on a local web server and opens the browser."""
@@ -67,8 +226,41 @@ def cmd_serve(args):
 def cmd_sync_images(args):
     """Fetches photos from Discord and launches visual review UI."""
     from pipeline.discord_sync import DiscordImageSyncer
+
+    slug = args.slug or _find_latest_image_sync_month()
+    if not slug:
+        print("[Error] No month with at least one written meal was found in content/.")
+        print("       Add a meal first, or provide a specific slug.")
+        return
+
+    if not args.slug:
+        print(f"[*] No month specified; selected {slug}.")
+
     syncer = DiscordImageSyncer()
-    syncer.launch_review_server(args.slug, limit=args.limit, mock=args.mock)
+    syncer.launch_review_server(slug, limit=args.limit, mock=args.mock)
+
+
+def _find_latest_image_sync_month() -> Optional[str]:
+    """Finds the newest month with meals, preferring meals without image paths."""
+    from pipeline.parser import MarkdownContentParser
+
+    parser = MarkdownContentParser()
+    months_with_meals: list[tuple[str, bool]] = []
+    for month_path in sorted(CONTENT_DIR.glob("*.md"), key=lambda path: path.stem, reverse=True):
+        try:
+            month = parser.parse_file(month_path)
+        except (OSError, ValueError, TypeError):
+            continue
+
+        meals = [meal for day in month.days for meal in day.meals]
+        if meals:
+            has_unlinked_meal = any(not meal.image.strip() for meal in meals)
+            months_with_meals.append((month_path.stem, has_unlinked_meal))
+
+    for slug, has_unlinked_meal in months_with_meals:
+        if has_unlinked_meal:
+            return slug
+    return months_with_meals[0][0] if months_with_meals else None
 
 def cmd_validate(args):
     """Runs data, markdown, and image asset validation checks."""
@@ -144,8 +336,16 @@ def cmd_new_month(args):
     out_md_path = CONTENT_DIR / f"{slug}.md"
 
     if out_md_path.exists() and not args.force:
-        print(f"[!] {out_md_path.name} already exists! Use --force if you want to overwrite.")
-        return
+        if args.refresh_empty:
+            if _is_empty_month_template(out_md_path):
+                print(f"[*] {out_md_path.name} is still empty; refreshing its template.")
+            else:
+                print(f"[!] {out_md_path.name} has meaningful content; refusing to refresh it.")
+                print("    Use --force only if you intentionally want to overwrite it.")
+                return
+        else:
+            print(f"[!] {out_md_path.name} already exists! Use --refresh-empty or --force.")
+            return
 
     if args.era:
         era = args.era
@@ -210,15 +410,10 @@ outro:
   title: ""
   image: ""
   # Closing reflections, post-month review, and afterthoughts for {month_name} {year}...
-  prose: ""
+  prose: |
+    
 expenses:
-  Adulting fees: 0.00
-  utilities: 0.00
-  petrol: 0.00
-  etc: 
-    - label: "(word here)"
-      day: 
-      amount: 
+{_render_recurring_expenses()}
 ---
 
 {"".join(days_blocks).strip()}
@@ -236,6 +431,103 @@ expenses:
     month_img_dir = IMAGES_DIR / str(year) / month_name
     month_img_dir.mkdir(parents=True, exist_ok=True)
     print(f"[+] Created image directory: {month_img_dir}")
+
+_DAY_HEADER_RE = re.compile(r'(?m)^##\s+(\d{4}-\d{2}-\d{2})\s*\(.*?\)')
+_TEMPLATE_LINE_RES = [
+    re.compile(r'^###\s*\[Dish Name\]\s*\[Restaurant\]$', re.I),
+    re.compile(r'^- Price:\s*(RM\s*0(\.0+)?)?$', re.I),
+    re.compile(r'^- Meal:\s*\w*$', re.I),
+    re.compile(r'^- Image:\s*(""|\'\')?$', re.I),
+    re.compile(r'^(Breakfast|Lunch|Dinner) review\.\.\.$', re.I),
+    re.compile(r'^- (Portion|Taste): details$', re.I),
+]
+
+
+def _is_empty_day_section(section: str) -> bool:
+    """True when a day section holds nothing but untouched template placeholders."""
+    lines = section.splitlines()[1:]  # first line is the '## date' header
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not any(rx.match(stripped) for rx in _TEMPLATE_LINE_RES):
+            return False
+    return True
+
+
+def _purge_empty_days_in_text(text: str, before: "datetime.date") -> tuple[str, list[str]]:
+    """Removes empty day sections dated before `before`. Returns (new_text, purged_dates)."""
+    import datetime
+
+    parts = text.split("---", 2)
+    if not text.startswith("---") or len(parts) < 3:
+        return text, []
+    body = parts[2]
+
+    matches = list(_DAY_HEADER_RE.finditer(body))
+    if not matches:
+        return text, []
+
+    kept = [body[:matches[0].start()]]
+    purged: list[str] = []
+    for idx, match in enumerate(matches):
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(body)
+        section = body[match.start():end]
+        try:
+            day_date = datetime.date.fromisoformat(match.group(1))
+        except ValueError:
+            kept.append(section)
+            continue
+        if day_date < before and _is_empty_day_section(section):
+            purged.append(match.group(1))
+        else:
+            kept.append(section)
+
+    if not purged:
+        return text, []
+    return "---" + parts[1] + "---" + "".join(kept), purged
+
+
+def cmd_purge_empty(args):
+    """Deletes day sections with no logged meals, from the start of the month(s) up to yesterday."""
+    import datetime
+
+    if args.before:
+        try:
+            before = datetime.date.fromisoformat(args.before)
+        except ValueError:
+            print(f"[Error] Invalid --before date '{args.before}'. Use YYYY-MM-DD.")
+            sys.exit(1)
+    else:
+        before = datetime.date.today()
+
+    if args.month_str:
+        files = [CONTENT_DIR / f"{args.month_str.strip()}.md"]
+        if not files[0].exists():
+            print(f"[Error] Month file not found: {files[0]}")
+            sys.exit(1)
+    else:
+        files = sorted(CONTENT_DIR.glob("*.md"))
+
+    print(f"[*] Purging empty days dated before {before.isoformat()} (days on/after it are kept).")
+    total = 0
+    for md_path in files:
+        with md_path.open("r", encoding="utf-8", newline="") as f:
+            text = f.read()
+        new_text, purged = _purge_empty_days_in_text(text, before)
+        if not purged:
+            continue
+        total += len(purged)
+        label = "Would purge" if args.dry_run else "Purged"
+        print(f"[+] {md_path.name}: {label} {len(purged)} empty day(s): {purged[0]} .. {purged[-1]}")
+        if not args.dry_run:
+            with md_path.open("w", encoding="utf-8", newline="") as f:
+                f.write(new_text)
+
+    if total == 0:
+        print("[*] Nothing to purge.")
+    elif args.dry_run:
+        print(f"[*] --dry-run: {total} day(s) would be removed; no files were changed.")
+    else:
+        print(f"[+] Removed {total} empty day(s).")
 
 def _smart_sync_file(src: Path, dst: Path) -> bool:
     """Copies src to dst ONLY if dst does not exist or has different size/mtime."""
@@ -363,7 +655,21 @@ def main():
     new_month_parser.add_argument("month_str", nargs="?", type=str, help="Optional target month e.g. '2026-09'. Defaults to next month.")
     new_month_parser.add_argument("--era", type=str, default=None, help="Era chapter title (defaults to inheriting previous month's era)")
     new_month_parser.add_argument("--force", action="store_true", help="Overwrite if file already exists")
+    new_month_parser.add_argument(
+        "--refresh-empty",
+        action="store_true",
+        help="Replace an existing month only when it still has no meals, expenses, or notes",
+    )
     new_month_parser.add_argument("--dry-run", action="store_true", help="Print preview without writing file")
+
+    # Purge-empty command
+    purge_parser = subparsers.add_parser(
+        "purge-empty",
+        help="Delete day sections with no logged meals, up to yesterday (today is kept)",
+    )
+    purge_parser.add_argument("month_str", nargs="?", type=str, help="Optional month slug e.g. '2026-11'. Defaults to all months.")
+    purge_parser.add_argument("--before", type=str, default=None, help="Purge days before this YYYY-MM-DD date instead of today")
+    purge_parser.add_argument("--dry-run", action="store_true", help="Show what would be removed without writing files")
 
     # Migrate command
     migrate_parser = subparsers.add_parser("migrate", help="Migrate a V1 HTML month file to Markdown")
@@ -371,6 +677,7 @@ def main():
 
     # Build command
     build_parser = subparsers.add_parser("build", help="Build static site to /dist")
+    build_parser.add_argument("--watch", action="store_true", help="Keep running and rebuild whenever source files change")
     build_parser.add_argument("--csv", action="store_true", help="Force export CSV datasets locally (default: skipped locally, handled via GitHub Actions)")
 
     # Serve command
@@ -379,7 +686,12 @@ def main():
 
     # Sync-images command
     sync_parser = subparsers.add_parser("sync-images", help="Fetch photos from Discord and launch visual review UI")
-    sync_parser.add_argument("slug", type=str, help="Month slug (e.g. '2026-08')")
+    sync_parser.add_argument(
+        "slug",
+        nargs="?",
+        type=str,
+        help="Optional month slug (defaults to newest month with an unlinked meal)",
+    )
     sync_parser.add_argument("--limit", type=int, default=None, help="Number of Discord photos to fetch (defaults to number of meals)")
     sync_parser.add_argument("--mock", action="store_true", help="Run in mock/offline mode with sample photos")
 
@@ -398,6 +710,8 @@ def main():
         cmd_sync_hdd(args)
     elif args.command == "new-month":
         cmd_new_month(args)
+    elif args.command == "purge-empty":
+        cmd_purge_empty(args)
     elif args.command == "migrate":
         cmd_migrate(args)
     elif args.command == "build":
