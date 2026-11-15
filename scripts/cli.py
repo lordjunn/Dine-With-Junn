@@ -12,7 +12,7 @@ if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from pipeline.migrator import V1HtmlMigrator
-from pipeline.config import BASE_DIR, CONTENT_DIR, V1_BASE_DIR
+from pipeline.config import BASE_DIR, CONTENT_DIR, IMAGES_DIR, TEMPLATES_DIR, V1_BASE_DIR
 
 
 def _load_recurring_expenses() -> dict:
@@ -60,7 +60,16 @@ def _render_recurring_expenses() -> str:
 
     for key in ("utilities", "petrol"):
         lines.append(f"  {key}: {_yaml_scalar(recurring.get(key, 0.0))}")
-    lines.append("  etc: []")
+    lines.append("  etc:")
+    lines.append('    - label: ""')
+    lines.append("      day: ")
+    lines.append("      amount: 0.00")
+    lines.append('      note: ""')
+    lines.append("  work_claims:")
+    lines.append('    - label: ""')
+    lines.append("      day: ")
+    lines.append("      amount: 0.00")
+    lines.append('      note: ""')
     return "\n".join(lines)
 
 
@@ -358,15 +367,9 @@ def cmd_new_month(args):
         else:
             print(f"[*] Era set to default: '{era}'")
 
-    # 2. Generate Calendar Days Skeleton
-    num_days = calendar.monthrange(year, month)[1]
-    days_blocks = []
-    for day in range(1, num_days + 1):
-        day_date = datetime.date(year, month, day)
-        day_str = day_date.strftime("%Y-%m-%d")
-        weekday_str = day_date.strftime("%A")
-
-        days_blocks.append(f"""## {day_str} ({weekday_str})
+    # 2. Render Calendar Days from template
+    day_template_path = TEMPLATES_DIR / "day_template.md"
+    day_template = day_template_path.read_text(encoding="utf-8") if day_template_path.exists() else """## {{ day_str }} ({{ weekday_str }})
 
 ### [Dish Name] [Restaurant]
 - Price: RM 0.00
@@ -390,35 +393,64 @@ Lunch review...
 - Image: ""
 
 Dinner review...
-""")
+"""
 
-    # 3. Assemble Full Markdown File
-    md_content = f"""---
-year: {year}
-month: {month}
-slug: "{slug}"
-title: "Food Archive - {month_name} {year}"
+    num_days = calendar.monthrange(year, month)[1]
+    days_blocks = []
+    for day in range(1, num_days + 1):
+        day_date = datetime.date(year, month, day)
+        day_str = day_date.strftime("%Y-%m-%d")
+        weekday_str = day_date.strftime("%A")
+
+        rendered_day = (
+            day_template
+            .replace("{{ day_str }}", day_str)
+            .replace("{{ weekday_str }}", weekday_str)
+        )
+        days_blocks.append(rendered_day)
+
+    days_content = "\n".join(days_blocks).strip()
+
+    # 3. Assemble Full Markdown File from month_template.md
+    month_template_path = TEMPLATES_DIR / "month_template.md"
+    month_template = month_template_path.read_text(encoding="utf-8") if month_template_path.exists() else """---
+year: {{ year }}
+month: {{ month }}
+slug: "{{ slug }}"
+title: "Food Archive - {{ month_name }} {{ year }}"
 nom_nom_days: 0
 reasons:
-  - "Milestone 1: 1/{month}"
+  - "Milestone 1: 1/{{ month }}"
 intro_text: |
-  Opening thoughts, mood, and predictions for {month_name} {year}...
+  Opening thoughts, mood, and predictions for {{ month_name }} {{ year }}...
 archive:
-  era: "{era}"
+  era: "{{ era }}"
   teaser: ""
   image: ""
 outro:
   title: ""
   image: ""
-  # Closing reflections, post-month review, and afterthoughts for {month_name} {year}...
+  # Closing reflections, post-month review, and afterthoughts for {{ month_name }} {{ year }}...
   prose: |
-    
+
 expenses:
-{_render_recurring_expenses()}
+{{ recurring_expenses }}
 ---
 
-{"".join(days_blocks).strip()}
+{{ days_content }}
 """
+
+    recurring_expenses_yaml = _render_recurring_expenses()
+    md_content = (
+        month_template
+        .replace("{{ year }}", str(year))
+        .replace("{{ month }}", str(month))
+        .replace("{{ slug }}", slug)
+        .replace("{{ month_name }}", month_name)
+        .replace("{{ era }}", era)
+        .replace("{{ recurring_expenses }}", recurring_expenses_yaml)
+        .replace("{{ days_content }}", days_content)
+    )
 
     if args.dry_run:
         print(f"[*] --dry-run: Would generate {out_md_path} ({num_days} days).")
@@ -595,7 +627,16 @@ def cmd_sync_hdd(args):
     print(f"[*] Starting smart incremental sync to: {dest_dir}")
 
     sync_dirs = ["content", "images", "templates", "static", "pipeline", "scripts", ".github"]
-    sync_files = ["config.json", "requirements.txt", "README.md", ".gitignore", ".env.example"]
+    sync_files = [
+        "config.json",
+        "requirements.txt",
+        "README.md",
+        "EDITING_GUIDE.md",
+        "DEVELOPMENT.md",
+        "CHANGELOG.md",
+        ".gitignore",
+        ".env.example",
+    ]
 
     copied_files = 0
     skipped_files = 0
