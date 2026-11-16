@@ -694,7 +694,7 @@ class SiteBuilder:
         d_avg_html = f' <span class="avg-note">(~RM {analytics.dinner_average:.2f} per meal)</span>' if analytics.dinner_count > 1 else ''
 
         outro_block = f"""
-  <section class="outro-section">
+  <section class="outro-section" id="outro-section">
     <div class="outro-top-row">
       {media_html}
       <div class="outro-prose-col">

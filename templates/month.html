@@ -29,7 +29,7 @@
   </div>
 
   <!-- Header Card: Milestones, Reasons, & Opening Prediction -->
-  <header class="month-header-card">
+  <header class="month-header-card" id="month-header-card">
     <h1 class="month-main-title">{{ month.title }}</h1>
 
     <div class="month-meta-box">
@@ -107,7 +107,7 @@
   <!-- Outro Retrospective & Spending Summary -->
   <!-- Outro Retrospective & Spending Summary -->
   {% if month.outro.title or month.outro.prose or analytics.purely_food_expenses > 0 %}
-  <section class="outro-section">
+  <section class="outro-section" id="outro-section">
     <div class="outro-top-row">
       {% if month.outro.image %}
         <div class="outro-media">

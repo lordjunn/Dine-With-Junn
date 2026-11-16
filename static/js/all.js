@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
               </div>
             `}
             <div class="search-date-link">
-              <a href="${item.month_slug}.html">Open Full Month (${item.month_slug}) &rarr;</a>
+              <a href="${item.month_slug}.html#month-header-card">Open Full Month (${item.month_slug}) &rarr;</a>
             </div>
           </div>
         </article>
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
               ${proseContent}
             </div>
             <div class="search-date-link">
-              <a href="${item.month_slug}.html">Open Full Month (${item.month_slug}) &rarr;</a>
+              <a href="${item.month_slug}.html#outro-section">Open Full Month (${item.month_slug}) &rarr;</a>
             </div>
           </div>
         </article>

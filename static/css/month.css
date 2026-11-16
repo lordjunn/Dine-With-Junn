@@ -57,6 +57,7 @@
 
 /* --- Header Card --- */
 .month-header-card {
+  scroll-margin-top: 5rem;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
@@ -399,6 +400,7 @@
 
 /* --- Outro Retrospective & Spending Summary (2-Row Layout) --- */
 .outro-section {
+  scroll-margin-top: 5rem;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
